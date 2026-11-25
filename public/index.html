@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ClientLuma</title>
+  <meta name="description" content="Prepare for client calls, get live coaching cues, and review what happened." />
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo" aria-hidden="true">CL</span><span>ClientLuma</span></div>
+    <nav class="steps" id="steps" aria-label="Workflow">
+      <button data-view="prep" class="active"><b>1</b> Prepare</button>
+      <button data-view="live"><b>2</b> Live call</button>
+      <button data-view="report"><b>3</b> Report</button>
+    </nav>
+    <div class="top-actions"><a class="btn sm" href="/overlay/" target="_blank" rel="noopener">Overlay</a><div class="engine" id="engine">…</div></div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="side-head"><span class="label">Clients</span><button class="btn sm" id="newClient">+ New</button></div>
+      <ul id="clientList" class="client-list"></ul>
+    </aside>
+
+    <main>
+      <!-- ============ PREPARE ============ -->
+      <section id="view-prep" class="view active">
+        <div class="page-head">
+          <div><span class="label">Step 1</span><h1>Prepare for the call</h1></div>
+          <button class="btn primary" id="genKb">Generate knowledge base</button>
+        </div>
+
+        <div class="bento bento-prep">
+          <div class="tile t-client">
+            <div class="tile-head"><h2>Client</h2></div>
+            <form id="clientForm" class="form">
+              <input type="hidden" name="id" />
+              <div class="row">
+                <label>Contact name<input name="name" required /></label>
+                <label>Company<input name="company" /></label>
+              </div>
+              <div class="row">
+                <label>Industry<input name="industry" /></label>
+                <label>Deal context<input name="deal" placeholder="Size, stage, source" /></label>
+              </div>
+              <label>What we're offering<input name="offering" /></label>
+              <label class="local-option"><input type="checkbox" name="local_only" /> Use local rules for this client</label>
+              <label>Stakeholders <span class="hint">one per line: Name - Role</span><textarea name="contacts" rows="3"></textarea></label>
+              <label>Notes <span class="hint">CRM notes, emails, research</span><textarea name="notes" rows="6"></textarea></label>
+              <div class="actions">
+                <button class="btn" type="submit">Save client</button>
+                <button class="btn ghost danger-text" type="button" id="deleteClient">Delete</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="tile t-summary accent-tile">
+            <span class="label">Knowledge base</span>
+            <div id="kbSummary" class="kb-summary">Save the client, then generate a knowledge base of likely pain points, expectations, objections and questions.</div>
+            <div id="kbGoals" class="kb-goals"></div>
+            <div id="kbExpect" class="kb-expect"></div>
+          </div>
+
+          <div class="tile t-pains"><div class="tile-head"><h2>Likely pain points</h2><span class="tag t-pain_point">probe</span></div><div id="kbPains" class="kb-list"></div></div>
+          <div class="tile t-objections"><div class="tile-head"><h2>Likely objections</h2><span class="tag t-objection">prepare</span></div><div id="kbObjections" class="kb-list"></div></div>
+          <div class="tile t-ask"><div class="tile-head"><h2>Questions to ask</h2></div><ul id="kbAsk" class="plain-list"></ul></div>
+          <div class="tile t-theirs"><div class="tile-head"><h2>They may ask</h2></div><div id="kbTheirQs" class="kb-list"></div></div>
+          <div class="tile t-memory">
+            <div class="tile-head"><h2>Client memory</h2></div>
+            <div id="profileBox"><p class="empty">Client insights appear here after a completed call.</p></div>
+          </div>
+          <div class="tile t-people"><div class="tile-head"><h2>Stakeholders</h2></div><div id="kbStake" class="people"></div></div>
+
+          <div class="tile t-docs">
+            <div class="tile-head"><h2>Documents</h2></div>
+            <ul id="docList" class="doc-list"></ul>
+            <label class="drop" id="drop">
+              <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.eml" />
+              <b>Drop files or click to upload</b><span class="hint">PDF, Word (.docx), .txt .md .csv .json .html .eml</span>
+            </label>
+          </div>
+
+          <div class="tile t-start">
+            <div class="tile-head"><h2>Start the call</h2></div>
+            <div class="sources">
+              <label class="source"><input type="radio" name="source" value="demo" checked />
+                <div><b>Simulated call</b><span>Plays a scripted discovery call. Best for demos.</span></div></label>
+              <label class="source" id="replaySource" hidden><input type="radio" name="source" value="replay" />
+                <div><b>Recording replay</b><span>Play the client recording at its original pace and watch for live coaching cues.</span></div></label>
+              <label class="source" id="agentTestSource"><input type="radio" name="source" value="agent_test" />
+                <div><b>Two-agent test</b><span>An AI presenter and buyer take turns in a local call. Watch the overlay as they talk.</span></div></label>
+              <label class="source" id="agentMeetSource"><input type="radio" name="source" value="agent_meet" />
+                <div><b>Two-agent test in Meet</b><span>The AI presenter and buyer speak in Google Meet while a silent listener transcribes.</span></div></label>
+              <label class="source"><input type="radio" name="source" value="browser" />
+                <div><b>Microphone</b><span>Live speech-to-text in Chrome or Edge.</span></div></label>
+              <label class="source" id="msSource"><input type="radio" name="source" value="meetstream" />
+                <div><b>MeetStream bot</b><span>Silent bot joins Zoom, Meet or Teams and streams the transcript.</span></div></label>
+              <label class="source" id="miaSource"><input type="radio" name="source" value="mia" />
+                <div><b>MIA agent</b><span id="miaSourceText">Hosted MeetStream agent. Silent until someone says "Hey MIA", then answers from this client's memory.</span></div></label>
+              <label class="source" id="practiceSource"><input type="radio" name="source" value="practice" />
+                <div><b>Practice call with an AI client</b><span>One bot plays the buyer. A silent listener transcribes the call for live coaching.</span></div></label>
+            </div>
+            <div class="row" id="sourceOpts">
+              <label id="repNameWrap">Your name on the call <span class="hint">tells you apart from the client</span><input id="repName" placeholder="e.g. Alex" /></label>
+              <label id="linkWrap" hidden>Meeting link<input id="meetingLink" placeholder="https://meet.google.com/…" /></label>
+              <label id="speedWrap">Call pace
+                <select id="demoSpeed"><option value="3200">Natural (~90 s)</option><option value="1500" selected>Fast (~50 s)</option><option value="6000">Slow (~2.5 min)</option></select></label>
+            </div>
+            <button class="btn primary lg" id="startCall">Start live analysis →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ LIVE ============ -->
+      <section id="view-live" class="view">
+        <div class="page-head">
+          <div class="live-title"><span class="dot rec"></span><div><span class="label">Live call<span id="liveSource"></span><span id="botStatus" class="bot-status" hidden></span></span><h1 id="liveClient">-</h1></div></div>
+          <button class="btn danger" id="endCall">End call & build report</button>
+        </div>
+
+        <section class="tile replay" id="replayPlayer" hidden>
+          <video id="replayVideo" preload="metadata" playsinline aria-label="Meeting recording"></video>
+          <div class="replay-controls">
+            <button class="btn primary" id="replayPlay" type="button">Play recording</button>
+            <span class="muted" id="replayTime">0:00</span>
+          </div>
+        </section>
+
+        <div class="bento bento-live">
+          <div class="tile stat">
+            <span class="label">Deal temperature</span>
+            <div class="stat-num"><b id="tempVal">50</b><span>/100</span></div>
+            <div class="meter"><div id="tempBar"></div></div>
+          </div>
+          <div class="tile stat">
+            <span class="label">Sentiment</span>
+            <div class="stat-word" id="sentiment">neutral</div>
+          </div>
+          <div class="tile stat t-counts">
+            <span class="label">Signals so far</span>
+            <div class="counts" id="counts"></div>
+          </div>
+
+          <div class="tile t-transcript">
+            <div class="tile-head"><h2>Transcript</h2><span class="thinking" id="thinking" hidden>analysing…</span></div>
+            <div id="transcript" class="transcript"></div>
+            <form id="manualForm" class="manual">
+              <select id="manualRole" aria-label="Speaker"><option value="client">Client</option><option value="rep">Me</option></select>
+              <input id="manualText" placeholder="Type what was said (or use the mic)…" autocomplete="off" />
+              <button class="btn" type="submit">Add</button>
+              <button class="btn" type="button" id="micBtn" hidden>Start mic</button>
+            </form>
+          </div>
+
+          <div class="tile t-sugs">
+            <div class="tile-head"><h2>Suggestions</h2></div>
+            <div id="suggestions" class="suggestions"><p class="empty">Suggestions appear here and as pop-ups as the client speaks.</p></div>
+          </div>
+
+          <div class="tile t-signals">
+            <div class="tile-head"><h2>Signals</h2></div>
+            <div class="filters" id="sigFilters"></div>
+            <ul id="signals" class="signals"></ul>
+          </div>
+
+          <div class="tile t-cheat">
+            <div class="tile-head"><h2>Cheat-sheet</h2></div>
+            <div id="kbMini" class="kb-mini"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ REPORT ============ -->
+      <section id="view-report" class="view">
+        <div class="page-head"><div><span class="label">Step 3</span><h1>Post-call report</h1></div></div>
+        <div id="report" class="bento bento-report"><div class="tile wide empty">End a call to generate its report. Past meetings for the selected client are listed below.</div></div>
+        <div class="bento"><div class="tile wide"><div class="tile-head"><h2>Meeting history</h2></div><ul id="history" class="history"></ul></div></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <script src="app.js" type="module"></script>
+</body>
+</html>

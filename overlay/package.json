@@ -1,0 +1,14 @@
+{
+  "name": "clientluma-overlay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Always-on-top ClientLuma coaching overlay",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "45.5.0"
+  }
+}

@@ -1,0 +1,19 @@
+services:
+  clientluma:
+    build: .
+    ports:
+      - "127.0.0.1:4000:4000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MIA_LISTEN_HOST: 0.0.0.0
+      MIA_DATA_DIR: /app/data
+      PORT: 4000
+    volumes:
+      - clientluma-data:/app/data
+    init: true
+    restart: unless-stopped
+
+volumes:
+  clientluma-data:

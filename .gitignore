@@ -1,0 +1,15 @@
+node_modules/
+data/
+.env
+.env.*
+!.env.example
+.tunnel-url
+dist/
+coverage/
+*.log
+*.mp4
+*.webm
+*.wav
+*.mp3
+IMPLEMENTATION_PLAN.md
+docs/mia-architecture.html

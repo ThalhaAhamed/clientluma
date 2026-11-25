@@ -1,0 +1,7 @@
+{
+  "duration": 15,
+  "segments": [
+    { "start": 1, "end": 4, "speaker": "Alex", "role": "rep", "text": "How are your managers reviewing calls today?" },
+    { "start": 5, "end": 10, "speaker": "Priya", "role": "client", "text": "It's all manual, and we can only review a small fraction of our calls." }
+  ]
+}
