@@ -62,6 +62,17 @@ p { margin: 0; }
 .engine.off { background: var(--obj-bg); color: var(--obj); border-color: #f1dfa6; }
 .top-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .top-actions a { text-decoration: none; }
+.workflow-list { list-style: none; padding: 0; margin: 0; }
+.workflow-list li, .setup-list div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; }
+.workflow-list li + li, .setup-list div + div, .review-item + .review-item { border-top: 1px solid var(--line); }
+.workflow-list li span { display: block; color: var(--muted); font-size: 12px; }
+.workflow-list a { text-decoration: none; }
+.workflow-list .btn { flex-shrink: 0; }
+.setup-list { margin: 0; }
+.setup-list dd { margin: 0; text-align: right; color: var(--muted); }
+.review-item { display: grid; gap: 6px; padding: 10px 0; }
+.review-item button { justify-self: start; }
+.review-item select { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--tile); font: inherit; }
 
 .layout { display: grid; grid-template-columns: 244px minmax(0, 1fr); min-height: calc(100vh - 57px); }
 .sidebar { padding: 20px 14px; border-right: 1px solid var(--line); background: var(--tile); }
@@ -75,6 +86,11 @@ p { margin: 0; }
 .stage { display: inline-block; font: 600 10px/1.5 var(--font-body); text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; border-radius: 5px; background: var(--buy-bg); color: var(--buy); margin-left: 6px; vertical-align: 1px; }
 main { padding: 24px 28px 48px; min-width: 0; }
 .view { display: none; } .view.active { display: block; }
+.welcome { margin-bottom: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.settings-form { max-width: 700px; }
+.settings-form section h2, .settings-form section p { margin: 0; }
+.settings-form label button { margin-top: 6px; }
+.settings-form select { display: block; width: 100%; margin-top: 4px; padding: 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--tile); color: var(--ink); }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
 .page-head .label { display: block; margin-bottom: 4px; }
 

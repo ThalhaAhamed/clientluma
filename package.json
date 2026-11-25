@@ -11,7 +11,9 @@
     "dev": "node --env-file-if-exists=.env --watch server.js",
     "tunnel": "node --env-file-if-exists=.env scripts/tunnel.mjs",
     "replay:import": "node --env-file-if-exists=.env scripts/import-replay.mjs",
-    "overlay": "npm --prefix overlay start"
+    "overlay": "npm --prefix overlay start",
+    "desktop": "npm --prefix overlay start -- --desktop",
+    "desktop:build": "node scripts/build-desktop.mjs"
   },
   "keywords": ["self-hosted", "meeting-coaching", "meetstream", "transcription"],
   "license": "MIT",

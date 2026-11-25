@@ -6,15 +6,18 @@ import fs from "node:fs";
 import { WebSocketServer } from "ws";
 import * as store from "./lib/store.js";
 import { generateKnowledgeBase, engine } from "./lib/ai.js";
-import { startSession, getSession, bindBot, sessionForBot, liveSessions } from "./lib/session.js";
+import { startSession, getSession, bindBot, sessionForBot, liveSessions, describeSession } from "./lib/session.js";
+import { isPracticeRun } from "./lib/call-workflow.js";
 import * as meetstream from "./lib/meetstream.js";
 import { DEMO_CLIENT, playDemo } from "./lib/demo.js";
 import { AI_PRESENTER, playAgentTest } from "./lib/agent-test.js";
 import { connectVoice, speakInMeet } from "./lib/meet-voice.js";
-import { getReplay, advanceReplay } from "./lib/replay.js";
+import { getReplay, saveReplay, advanceReplay } from "./lib/replay.js";
 import { extractDocText } from "./lib/extract.js";
 import * as miaAgent from "./lib/mia-agent.js";
 import * as miaTools from "./lib/mia-tools.js";
+import { setting, saveSettings, settingsStatus } from "./lib/settings.js";
+import { ZodError } from "zod";
 
 const PORT = Number(process.env.PORT || 4000);
 const LISTEN_HOST = process.env.MIA_LISTEN_HOST || "127.0.0.1";
@@ -26,11 +29,11 @@ const alive = (pid) => {
 };
 const publicUrl = () => {
   let u = "";
-  try {
+  if (process.env.MIA_DESKTOP !== "1") try {
     const [url, pid] = fs.readFileSync(".tunnel-url", "utf8").trim().split(/\s+/);
     if (url && (!pid || alive(Number(pid)))) u = url; // stale file from a killed tunnel: ignore it
   } catch {}
-  return (u || process.env.PUBLIC_URL || "").replace(/\/$/, "");
+  return (u || setting("PUBLIC_URL")).replace(/\/$/, "");
 };
 // MeetStream's per-bot webhooks are unsigned, so each webhook URL carries this secret (MeetStream's recommendation).
 const WEBHOOK_SECRET = process.env.MIA_WEBHOOK_SECRET || crypto.randomBytes(16).toString("hex");
@@ -64,6 +67,33 @@ const wrap = (fn) => (req, res) => fn(req, res).catch((e) => { console.error(e);
 app.get("/api/status", (_req, res) =>
   res.json({ engine: engine(), meetstream: meetstream.meetstreamEnabled(), webhook: Boolean(publicUrl()), mia_agent: miaAgent.agentStatus() })
 );
+app.get("/api/settings", (_req, res) => res.set("Cache-Control", "no-store").json(settingsStatus()));
+app.put("/api/settings", (req, res, next) => {
+  if (!req.is("application/json")) return res.sendStatus(415);
+  if (liveSessions({ includePending: true }).length) return res.status(409).json({ error: "Finish active calls before changing services." });
+  try {
+    saveSettings(req.body);
+    res.set("Cache-Control", "no-store").json(settingsStatus());
+  } catch (error) {
+    if (error instanceof ZodError) return res.status(400).json({ error: "Check the provider, keys and public HTTPS callback URL." });
+    next(error);
+  }
+});
+
+app.post("/api/clients/:id/replay", (req, res) => {
+  if (process.env.MIA_DESKTOP !== "1") return res.sendStatus(404);
+  const client = store.getClient(req.params.id);
+  if (!client) return res.status(404).json({ error: "Client not found." });
+  if (!req.is("application/json")) return res.sendStatus(415);
+  try {
+    const { file, transcript } = req.body;
+    if (typeof file !== "string" || !file.length) throw new Error("Choose a recording.");
+    const segments = saveReplay(client.id, file, transcript);
+    res.json({ segments });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof ZodError ? "Invalid transcript. Check the replay JSON format." : error.message });
+  }
+});
 
 // ---------- MeetStream MIA agent (hosted voice agent that answers from client memory)
 const agentToolsBase = () => publicUrl();
@@ -149,7 +179,7 @@ app.post("/api/sessions", wrap(async (req, res) => {
   if (source === "replay" && !recording) return res.status(404).json({ error: "No replay recording is available for this client." });
   const agentMeet = source === "agent_meet";
   if (["agent_test", "agent_meet"].includes(source) && engine() === "offline") return res.status(400).json({ error: "Configure an AI provider to run the two-agent test." });
-  if (agentMeet && process.platform !== "win32" && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) return res.status(400).json({ error: "Configure a Gemini key for voice playback in Meet." });
+  if (agentMeet && process.platform !== "win32" && !setting("GEMINI_API_KEY")) return res.status(400).json({ error: "Configure a Gemini key for voice playback in Meet." });
   const remote = ["meetstream", "mia", "practice", "agent_meet"].includes(source);
   const webhookBase = remote ? publicUrl() : "";
   if (remote) {
@@ -158,7 +188,7 @@ app.post("/api/sessions", wrap(async (req, res) => {
     if (typeof meetingLink !== "string" || !meetingLink.trim()) return res.status(400).json({ error: "Meeting link is required." });
   }
   if (!c.kb) {
-    const { kb, engine: used } = await generateKnowledgeBase(c);
+    const { kb, engine: used } = await generateKnowledgeBase(["demo", "replay"].includes(source) ? { ...c, local_only: true } : c);
     c.kb = kb; c.kb_engine = used; c.kb_at = new Date().toISOString();
     store.saveClient(c);
   }
@@ -167,7 +197,7 @@ app.post("/api/sessions", wrap(async (req, res) => {
     try { agentConfigId = source === "practice" ? await miaAgent.ensureAgent({ kind: "persona" }) : await syncAgent(); }
     catch (e) { return res.status(502).json({ error: `Could not set up the ${source === "practice" ? "AI client" : "MIA agent"}: ${e.message}` }); }
   }
-  const s = startSession({ client: c, kb: c.kb, repName: source === "demo" ? "Alex" : repName, source });
+  const s = startSession({ client: source === "demo" ? { ...c, local_only: true } : c, kb: c.kb, repName: source === "demo" ? "Alex" : repName, source });
   if (recording) s.replay = { ...recording, cursor: 0, position: 0 };
   const q = `?token=${encodeURIComponent(WEBHOOK_SECRET)}`;
   const botOptions = {
@@ -237,8 +267,14 @@ app.post("/api/sessions", wrap(async (req, res) => {
   }
   if (source === "demo") s.stopSource = playDemo(s, { speedMs: Number(req.body.speedMs) || 3200 });
   if (source === "agent_test") s.stopSource = playAgentTest(s);
-  res.json({ id: s.id, kb: s.kb, botId: s.botId || null, ...(s.replay && { replayPosition: 0 }), ...(s.personaBotId && { personaBotId: s.personaBotId }), ...(s.presenterBotId && { presenterBotId: s.presenterBotId }) });
+  res.json({ ...describeSession(s), kb: s.kb, botId: s.botId || null, ...(s.personaBotId && { personaBotId: s.personaBotId }), ...(s.presenterBotId && { presenterBotId: s.presenterBotId }) });
 }));
+
+app.get("/api/sessions/:id", (req, res) => {
+  const session = getSession(req.params.id);
+  if (!session || session.status === "ended") return res.status(404).json({ error: "Active call not found." });
+  res.json(describeSession(session));
+});
 
 app.get("/api/sessions/:id/recording", (req, res) => {
   const replay = getSession(req.params.id)?.replay;
@@ -257,6 +293,19 @@ app.post("/api/sessions/:id/replay/progress", (req, res) => {
 
 // Calls in progress (local only, like the rest of the API). The desktop overlay polls this.
 app.get("/api/live", (_req, res) => res.json(liveSessions()));
+
+app.get("/api/workspace", (_req, res) => {
+  const clients = new Map(store.listClients().map((client) => [client.id, client]));
+  const recent = store.listMeetings().filter((m) => clients.has(m.client_id)).slice(0, 6).map((m) => {
+    const client = clients.get(m.client_id);
+    return { id: m.id, clientId: client.id, client: client.company || client.name, source: m.source, started_at: m.started_at };
+  });
+  const followUps = [...clients.values()].flatMap((client) => (client.commitments || [])
+    .filter((item) => item.status === "open")
+    .map(({ id, text, due, owner, created_at }) => ({ id, text, due, owner, created_at, clientId: client.id, client: client.company || client.name })))
+    .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+  res.json({ active: liveSessions({ includePending: true }), recent, followUps: followUps.slice(0, 6), demoClientId: DEMO_CLIENT.id });
+});
 
 // Overlay context for one call: the cheat-sheet that doesn't change during the call.
 app.get("/api/sessions/:id/brief", (req, res) => {
@@ -299,6 +348,40 @@ app.post("/api/sessions/:id/end", wrap(async (req, res) => {
 app.get("/api/meetings/:id", (req, res) => {
   const m = store.getMeeting(req.params.id);
   m ? res.json(m) : res.status(404).json({ error: "not found" });
+});
+
+app.post("/api/meetings/:id/follow-ups", (req, res) => {
+  const meeting = store.getMeeting(req.params.id);
+  const client = meeting && store.getClient(meeting.client_id);
+  if (!client) return res.status(404).json({ error: "Meeting or client not found." });
+  const demo = meeting.source === "demo" && client.id === DEMO_CLIENT.id;
+  if (isPracticeRun(meeting.source) && !demo) return res.status(400).json({ error: "Follow-ups from this practice report stay with the report." });
+  const { index } = req.body || {};
+  const proposal = Number.isInteger(index) && meeting.report?.next_steps?.[index];
+  if (!proposal) return res.status(400).json({ error: "Choose a next step from this report." });
+  const { action = proposal.action, owner = proposal.owner, due = proposal.due } = req.body;
+  if (typeof action !== "string" || !action.trim() || action.trim().length > 300 || !["us", "client", "both"].includes(owner) || typeof due !== "string" || due.length > 120) {
+    return res.status(400).json({ error: "Enter a follow-up, choose an owner, and keep the due date under 120 characters." });
+  }
+  const commitments = client.commitments || [];
+  const existing = commitments.find((item) => item.meeting_id === meeting.id && item.next_step_index === index);
+  if (existing) return res.json(existing);
+  const item = { id: store.newId("cmt"), text: action.trim(), owner, due: due.trim(), status: "open",
+    meeting_id: meeting.id, next_step_index: index, source: "report-review", created_at: new Date().toISOString() };
+  client.commitments = [...commitments, item];
+  store.saveClient(client);
+  res.status(201).json(item);
+});
+
+app.patch("/api/clients/:id/follow-ups/:followUpId", (req, res) => {
+  const client = store.getClient(req.params.id);
+  const item = client?.commitments?.find((entry) => entry.id === req.params.followUpId);
+  if (!item) return res.status(404).json({ error: "Follow-up not found." });
+  const status = req.body?.status;
+  if (!["open", "done"].includes(status)) return res.status(400).json({ error: "Choose open or done." });
+  item.status = status;
+  store.saveClient(client);
+  res.json(item);
 });
 
 // ---------- MeetStream live transcript webhook
@@ -416,6 +499,7 @@ wss.on("connection", (ws, req) => {
 });
 
 server.listen(PORT, LISTEN_HOST, () => {
+  process.parentPort?.postMessage({ port: server.address().port });
   console.log(`ClientLuma running at http://localhost:${server.address().port}`);
   console.log(`  engine: ${engine()}`);
   console.log(`  meetstream: ${meetstream.meetstreamEnabled() ? "enabled" : "disabled (set MEETSTREAM_API_KEY)"}`);

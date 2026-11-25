@@ -11,9 +11,11 @@
   <header class="topbar">
     <div class="brand"><span class="logo" aria-hidden="true">CL</span><span>ClientLuma</span></div>
     <nav class="steps" id="steps" aria-label="Workflow">
-      <button data-view="prep" class="active"><b>1</b> Prepare</button>
-      <button data-view="live"><b>2</b> Live call</button>
-      <button data-view="report"><b>3</b> Report</button>
+      <button data-view="home" class="active">Workspace</button>
+      <button data-view="prep">Prepare</button>
+      <button data-view="live">Live call</button>
+      <button data-view="report">Report</button>
+      <button data-view="settings">Settings</button>
     </nav>
     <div class="top-actions"><a class="btn sm" href="/overlay/" target="_blank" rel="noopener">Overlay</a><div class="engine" id="engine">…</div></div>
   </header>
@@ -25,10 +27,45 @@
     </aside>
 
     <main>
+      <section id="view-home" class="view active">
+        <div class="page-head"><div><h1>Client calls</h1><p class="muted">Prepare the brief, coach during the call, then review what to follow up.</p></div>
+          <button id="prepareCall" class="btn primary">Prepare a call</button></div>
+        <section id="welcome" class="tile welcome" hidden>
+          <div><h2>Set up your workspace</h2><p class="muted">Try a fictional discovery call with local coaching, or connect services for your own meetings.</p></div>
+          <div class="actions"><button class="btn primary" id="welcomeDemo">Try the demo</button><button class="btn" id="welcomeSetup">Set up services</button></div>
+        </section>
+        <div class="bento">
+          <section class="tile s7"><div class="tile-head"><h2>Calls in progress</h2><button id="refreshWorkspace" class="btn sm">Refresh</button></div><ul id="workspaceCalls" class="workflow-list"></ul></section>
+          <section class="tile s5"><div class="tile-head"><h2>Setup</h2><button id="demoCall" class="btn sm">Try the demo</button></div><dl id="workspaceSetup" class="setup-list"></dl></section>
+          <section class="tile s7"><div class="tile-head"><h2>Recent reports</h2></div><ul id="workspaceReports" class="workflow-list"></ul></section>
+          <section class="tile s5"><div class="tile-head"><h2>Open follow-ups</h2></div><ul id="workspaceFollowUps" class="workflow-list"></ul></section>
+        </div>
+      </section>
+      <section id="view-settings" class="view">
+        <div class="page-head"><div><h1>Settings</h1><p class="muted">Choose how to coach calls and connect your meetings.</p></div></div>
+        <form id="settingsForm" class="form settings-form">
+          <section class="tile form">
+            <h2>Coaching</h2>
+            <label>Engine<select name="MIA_PROVIDER"><option value="offline">Local rules</option><option value="auto">Auto-select from configured providers</option><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option></select></label>
+            <p class="muted small">Cloud coaching sends relevant client context and call text to the selected provider. Replay and the scripted demo use local rules.</p>
+            <label>Gemini API key<input name="GEMINI_API_KEY" type="password" autocomplete="off" /></label>
+            <label>Anthropic API key<input name="ANTHROPIC_API_KEY" type="password" autocomplete="off" /></label>
+          </section>
+          <section class="tile form">
+            <h2>Live meeting connection</h2>
+            <p class="muted small">MeetStream transcribes audio in Google Meet, Zoom or Teams and sends the transcript back to this app.</p>
+            <label>MeetStream API key<input name="MEETSTREAM_API_KEY" type="password" autocomplete="off" /></label>
+            <label>Public callback URL<input name="PUBLIC_URL" type="url" placeholder="https://your-tunnel.example" /></label>
+            <p class="muted small" id="callbackHelp"></p>
+            <p class="muted small">Leave password fields blank to keep saved keys.</p>
+          </section>
+          <div class="actions"><button type="submit" class="btn primary">Save settings</button><button type="button" class="btn" id="settingsBack">Back to workspace</button><span id="settingsStatus" class="muted" role="status"></span></div>
+        </form>
+      </section>
       <!-- ============ PREPARE ============ -->
-      <section id="view-prep" class="view active">
+      <section id="view-prep" class="view">
         <div class="page-head">
-          <div><span class="label">Step 1</span><h1>Prepare for the call</h1></div>
+          <div><h1>Prepare for the call</h1></div>
           <button class="btn primary" id="genKb">Generate knowledge base</button>
         </div>
 
@@ -70,6 +107,7 @@
           <div class="tile t-memory">
             <div class="tile-head"><h2>Client memory</h2></div>
             <div id="profileBox"><p class="empty">Client insights appear here after a completed call.</p></div>
+            <div class="profile" id="clientFollowUps" hidden></div>
           </div>
           <div class="tile t-people"><div class="tile-head"><h2>Stakeholders</h2></div><div id="kbStake" class="people"></div></div>
 
@@ -94,7 +132,7 @@
               <label class="source" id="agentMeetSource"><input type="radio" name="source" value="agent_meet" />
                 <div><b>Two-agent test in Meet</b><span>The AI presenter and buyer speak in Google Meet while a silent listener transcribes.</span></div></label>
               <label class="source"><input type="radio" name="source" value="browser" />
-                <div><b>Microphone</b><span>Live speech-to-text in Chrome or Edge.</span></div></label>
+                <div><b>Manual or microphone</b><span id="browserSourceText">Enter lines manually or use speech-to-text in Chrome or Edge.</span></div></label>
               <label class="source" id="msSource"><input type="radio" name="source" value="meetstream" />
                 <div><b>MeetStream bot</b><span>Silent bot joins Zoom, Meet or Teams and streams the transcript.</span></div></label>
               <label class="source" id="miaSource"><input type="radio" name="source" value="mia" />
@@ -108,7 +146,7 @@
               <label id="speedWrap">Call pace
                 <select id="demoSpeed"><option value="3200">Natural (~90 s)</option><option value="1500" selected>Fast (~50 s)</option><option value="6000">Slow (~2.5 min)</option></select></label>
             </div>
-            <button class="btn primary lg" id="startCall">Start live analysis →</button>
+            <div class="actions"><button class="btn primary lg" id="startCall">Start live analysis →</button><button class="btn" id="importReplay" hidden>Import recording replay</button></div>
           </div>
         </div>
       </section>

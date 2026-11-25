@@ -86,7 +86,7 @@ h1, h2 { font-family: var(--display); margin: 0; }
   <section class="tile heard" id="heardTile" hidden><span class="label">Client just said</span><div id="heard"></div></section>
 
   <section class="tile signal" id="signal" aria-label="Latest call signal" hidden></section>
-  <div class="foot"><span class="shield" id="shield">Hidden from screen sharing</span></div>
+  <div class="foot"><span class="shield" id="shield">Screen capture protection on</span></div>
 </div>
 
 <script>
@@ -112,12 +112,14 @@ const OPACITY = [1, 0.85, 0.65];
 let op = 0;
 $("#opBtn").onclick = () => { op = (op + 1) % OPACITY.length; bridge?.setOpacity(OPACITY[op]); };
 
-// ---- follow the newest live call
+// Follow the selected desktop call, or the newest call in a browser preview.
+const pinned = new URLSearchParams(location.search).get("session");
 async function poll() {
   try {
     const live = await fetch("/api/live").then((r) => r.json());
-    const next = live[0]?.id || null;
-    if (next !== sessionId) connect(next, live[0]);
+    const call = pinned ? live.find((item) => item.id === pinned) : live[0];
+    const next = call?.id || null;
+    if (next !== sessionId) connect(next, call);
   } catch { /* server restarting */ }
 }
 setInterval(poll, 2000);
@@ -133,7 +135,7 @@ async function connect(id, info) {
   $("#dot").classList.toggle("live", Boolean(id));
   if (!id) { $("#client").textContent = "ClientLuma"; $("#status").textContent = "Looking for a live call…"; return; }
   $("#client").textContent = info.client;
-  $("#status").textContent = { meetstream: "MeetStream bot", mia: "MIA agent", demo: "Simulated call", browser: "Microphone", practice: "Practice call", agent_test: "Two-agent test", agent_meet: "Two-agent test in Meet", replay: "Recording replay" }[info.source] || info.source;
+  $("#status").textContent = { meetstream: "MeetStream bot", mia: "MIA agent", demo: "Simulated call", browser: "Manual or microphone", practice: "Practice call", agent_test: "Two-agent test", agent_meet: "Two-agent test in Meet", replay: "Recording replay" }[info.source] || info.source;
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?session=${id}`);
   ws.onmessage = (ev) => {
     const { type, data } = JSON.parse(ev.data);

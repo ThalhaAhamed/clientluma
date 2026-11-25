@@ -23,3 +23,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - if: matrix.os == 'windows-latest'
+        run: npm ci --prefix overlay
+      - if: matrix.os == 'windows-latest'
+        run: npm run desktop:build
+      - if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: clientluma-windows
+          path: dist/clientluma-*-windows-*.zip
+          if-no-files-found: error
+          compression-level: 0

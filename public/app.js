@@ -5,10 +5,12 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const api = async (path, opts = {}) => {
   const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || res.statusText);
+  if (!res.ok) throw Object.assign(new Error(json.error || res.statusText), { status: res.status });
   return json;
 };
 const LABEL = { pain_point: "Pain point", objection: "Objection", buying_signal: "Buying signal", requirement: "Requirement", question: "Question", risk: "Risk" };
+const SOURCES = { demo: "Simulated call", agent_test: "Two-agent test", agent_meet: "Two-agent test in Meet", browser: "Microphone", meetstream: "MeetStream bot", mia: "MIA agent", practice: "Practice call", replay: "Recording replay" };
+const OWNERS = { us: "Our team", client: "Client", both: "Both" };
 
 const state = { clients: [], client: null, session: null, ws: null, signals: [], filters: new Set(), recog: null };
 
@@ -16,32 +18,160 @@ const state = { clients: [], client: null, session: null, ws: null, signals: [],
 function show(view) {
   $$(".steps button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   $$(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${view}`));
+  if (view === "settings") loadSettings().catch(showError);
+  if (view === "home") {
+    history.replaceState(null, "", location.pathname);
+    refreshWorkspace().catch(showError);
+  }
 }
 $$(".steps button").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
+$("#prepareCall").onclick = () => show("prep");
+$("#refreshWorkspace").onclick = () => refreshWorkspace().catch(showError);
+
+const showError = (error) => toast({ kind: "error", title: "Could not complete that action", text: error.message });
+const dateLabel = (date) => new Date(date).toLocaleString();
+
+async function openSavedSession(id) {
+  if (state.session?.id === id) {
+    show("live");
+    window.clientLuma?.showOverlay(id).catch(showError);
+    return;
+  }
+  let session;
+  try { session = await api(`/api/sessions/${encodeURIComponent(id)}`); }
+  catch (error) { if (error.status !== 404) throw error; }
+  if (session) {
+    await selectClient(session.clientId);
+    beginLive(session, session.source);
+  } else {
+    const meeting = await api(`/api/meetings/${encodeURIComponent(id)}`);
+    await selectClient(meeting.client_id);
+    showReport(meeting);
+  }
+}
+
+async function refreshWorkspace() {
+  const { active, recent, followUps, demoClientId } = await api("/api/workspace");
+  const empty = (text) => `<li class="muted">${text}</li>`;
+  const links = (items, action) => items.map((item) => `<li><div><b>${esc(item.client)}</b><span>${esc(SOURCES[item.source] || item.source)} · ${esc(dateLabel(item.started_at))}</span></div><a class="btn sm" href="?session=${encodeURIComponent(item.id)}" data-session="${esc(item.id)}">${action}</a></li>`).join("");
+  $("#workspaceCalls").innerHTML = links(active, "Resume") || empty("No calls in progress.");
+  $("#workspaceReports").innerHTML = links(recent, "Open report") || empty("Completed calls will appear here.");
+  $("#workspaceFollowUps").innerHTML = followUps.map((item) => `<li><div><b>${esc(item.text)}</b><span>${esc(item.client)} · ${esc(OWNERS[item.owner] || item.owner)}${item.due ? ` · ${esc(item.due)}` : ""}</span></div><button class="btn sm" data-client="${esc(item.clientId)}">Review</button></li>`).join("") || empty("No open follow-ups.");
+  $$("#view-home [data-session]").forEach((link) => link.onclick = (event) => { event.preventDefault(); openSavedSession(link.dataset.session).catch(showError); });
+  $$("#workspaceFollowUps [data-client]").forEach((button) => button.onclick = () => selectClient(button.dataset.client).then(() => show("prep")).catch(showError));
+  $("#demoCall").onclick = $("#welcomeDemo").onclick = async (event) => {
+    const button = event.currentTarget; button.disabled = true;
+    try {
+      if (!state.settings?.ready) await updateSettings({ MIA_PROVIDER: "offline" });
+      await selectClient(demoClientId);
+      await launchCall("demo");
+    }
+    catch (error) { showError(error); }
+    finally { button.disabled = false; }
+  };
+}
+
+const settingsForm = $("#settingsForm");
+const secretNames = ["GEMINI_API_KEY", "ANTHROPIC_API_KEY", "MEETSTREAM_API_KEY"];
+for (const key of secretNames) {
+  const button = Object.assign(document.createElement("button"), { type: "button", className: "btn sm", textContent: "Remove saved key", hidden: true });
+  button.dataset.removeKey = key;
+  settingsForm.elements[key].parentElement.append(button);
+  button.onclick = async () => {
+    try { await updateSettings({ clear: [key] }); $("#settingsStatus").textContent = "Key removed."; }
+    catch (error) { $("#settingsStatus").textContent = error.message; }
+  };
+}
+$("#welcomeSetup").onclick = () => show("settings");
+$("#settingsBack").onclick = () => show("home");
+
+function renderSettings(settings) {
+  state.settings = settings;
+  $("#welcome").hidden = settings.ready;
+  $("#callbackHelp").textContent = settings.desktop
+    ? `Point your HTTPS tunnel at ${settings.callbackTarget}. Paste its public origin here.`
+    : "Use a public HTTPS tunnel to reach your local server.";
+  settingsForm.elements.MIA_PROVIDER.value = settings.ready ? settings.provider : "offline";
+  settingsForm.elements.PUBLIC_URL.value = settings.callbackUrl;
+  for (const key of ["MIA_PROVIDER", "PUBLIC_URL", ...secretNames]) {
+    const field = settingsForm.elements[key];
+    field.disabled = settings.managed.includes(key);
+    field.title = field.disabled ? "Managed by the server environment" : "";
+    if (secretNames.includes(key)) {
+      field.value = "";
+      field.placeholder = settings.configured[key] ? "Configured" : "Optional";
+      $(`[data-remove-key="${key}"]`).hidden = !settings.configured[key] || field.disabled;
+    }
+  }
+}
+async function loadSettings() { renderSettings(await api("/api/settings")); }
+async function updateSettings(body) {
+  renderSettings(await api("/api/settings", { method: "PUT", body }));
+  await loadStatus();
+}
+settingsForm.onsubmit = async (event) => {
+  event.preventDefault();
+  const button = event.submitter;
+  button.disabled = true;
+  $("#settingsStatus").textContent = "Saving…";
+  try {
+    const body = Object.fromEntries(new FormData(settingsForm));
+    const required = { gemini: "GEMINI_API_KEY", claude: "ANTHROPIC_API_KEY" }[body.MIA_PROVIDER];
+    if (required && !body[required]?.trim() && !state.settings?.configured[required]) throw new Error("Enter an API key for the selected engine.");
+    await updateSettings(body);
+    $("#settingsStatus").textContent = "Settings saved.";
+    show("home");
+  } catch (error) { $("#settingsStatus").textContent = error.message; }
+  finally { button.disabled = false; }
+};
+
+$("#importReplay").hidden = !window.clientLuma;
+$("#importReplay").onclick = async (event) => {
+  if (!state.client) return toast({ title: "Save a client first", text: "The recording will be linked to that client." });
+  const clientId = state.client.id;
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const replay = await window.clientLuma.chooseReplay();
+    if (!replay) return;
+    const { segments } = await api(`/api/clients/${encodeURIComponent(clientId)}/replay`, { method: "POST", body: replay });
+    if (state.client?.id === clientId) {
+      await selectClient(clientId);
+      $("#replaySource input").checked = true;
+      $("#replaySource input").dispatchEvent(new Event("change"));
+    }
+    toast({ kind: "saved", title: "Replay imported", text: `${segments} transcript segments are ready to play.` });
+  } catch (error) { showError(error); }
+  finally { button.disabled = false; }
+};
 
 // ---------------- status
+const sourceText = new Map(["#agentTestSource", "#agentMeetSource", "#msSource", "#miaSource", "#practiceSource"].map((id) => [id, $(`${id} span`).textContent]));
+if (window.clientLuma) $("#browserSourceText").textContent = "Type lines as they are spoken to test coaching without a bot.";
 async function loadStatus() {
   const s = await api("/api/status");
   const el = $("#engine");
   el.textContent = s.engine === "offline" ? "Local coaching" : `AI: ${s.engine}`;
   el.classList.toggle("off", s.engine === "offline");
-  el.title = s.engine === "offline" ? "Set ANTHROPIC_API_KEY and restart for Claude-powered analysis" : "";
-  if (s.engine === "offline") {
-    $("#agentTestSource").classList.add("disabled");
-    $("#agentTestSource input").disabled = true;
-    $("#agentTestSource span").textContent = "Configure an AI provider to run the two-agent test.";
+  $("#workspaceSetup").innerHTML = `<div><dt>Coaching engine</dt><dd>${esc(s.engine === "offline" ? "Local rules" : s.engine)}</dd></div><div><dt>MeetStream key</dt><dd>${s.meetstream ? "Configured" : "Add in Settings"}</dd></div><div><dt>Callback URL</dt><dd>${s.webhook ? "Configured" : "Add in Settings"}</dd></div>`;
+  const ai = s.engine !== "offline";
+  const meeting = s.meetstream && s.webhook;
+  const disabled = {
+    "#agentTestSource": ai ? "" : "Choose an AI engine and add its key in Settings.",
+    "#agentMeetSource": ai && meeting ? "" : "Configure an AI engine, MeetStream key and callback URL in Settings.",
+    ...Object.fromEntries(["#msSource", "#miaSource", "#practiceSource"].map((id) => [id, meeting ? "" : "Add a MeetStream key and callback URL in Settings."])),
+  };
+  for (const [id, reason] of Object.entries(disabled)) {
+    $(id).classList.toggle("disabled", Boolean(reason));
+    $(`${id} input`).disabled = Boolean(reason);
+    $(`${id} span`).textContent = reason || sourceText.get(id);
   }
-  if (s.engine === "offline" || !s.meetstream) {
-    $("#agentMeetSource").classList.add("disabled");
-    $("#agentMeetSource input").disabled = true;
+  if ($('input[name="source"]:checked')?.disabled) {
+    const local = $('input[value="demo"]');
+    local.checked = true;
+    local.dispatchEvent(new Event("change"));
   }
-  if (!s.meetstream) {
-    for (const id of ["#msSource", "#miaSource", "#practiceSource"]) {
-      $(id).classList.add("disabled");
-      $(`${id} span`).textContent = "Set MEETSTREAM_API_KEY on the server and run the tunnel to enable.";
-      $(`${id} input`).disabled = true;
-    }
-  } else if (s.mia_agent) {
+  if (meeting && s.mia_agent) {
     const a = s.mia_agent;
     $("#miaSourceText").textContent = `Hosted MeetStream agent (${a.llm}, ${a.mode}). Silent until someone says "${a.wake_words[0] || "MIA"}", then answers from this client's memory.`
       + (a.last_error ? ` Last setup error: ${a.last_error}` : "");
@@ -138,18 +268,30 @@ drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove
 // ---------------- knowledge base
 function renderProfile() {
   const p = state.client?.profile;
-  const open = (state.client?.commitments || []).filter((x) => x.status === "open");
-  let html = !p ? `<p class="empty">Client insights appear here after a completed call.</p>` : `
+  const html = !p ? `<p class="empty">Client insights appear here after a completed call.</p>` : `
     <div class="profile">
       <h4>From ${state.client.meetings?.length || 0} past meeting(s) <span class="stage">${esc(p.deal_stage.replace("_", " "))}</span></h4>
       <p>${esc(p.summary)}</p>
       ${p.known_pain_points?.length ? `<div class="chips">${p.known_pain_points.map((x) => `<span class="chip">${esc(x)}</span>`).join("")}</div>` : ""}
       ${p.open_objections?.length ? `<p class="small muted" style="margin-top:8px">Open objections: ${p.open_objections.map(esc).join(" · ")}</p>` : ""}
     </div>`;
-  if (open.length) html += `
-    <div class="profile"><h4>Open commitments (${open.length})</h4>
-      <ul class="plain-list">${open.map((x) => `<li><b>${x.owner === "us" ? "Us" : "Client"}:</b> ${esc(x.text)}${x.due ? ` <span class="muted">· ${esc(x.due)}</span>` : ""}</li>`).join("")}</ul></div>`;
   $("#profileBox").innerHTML = html;
+  const followUps = $("#clientFollowUps");
+  const client = state.client;
+  const items = client?.commitments || [];
+  followUps.hidden = !client;
+  followUps.innerHTML = `<h4>Follow-ups</h4><ul class="workflow-list">${items.map((item) => `<li><div><b>${esc(item.text)}</b><span>${esc(OWNERS[item.owner] || item.owner)}${item.due ? ` · ${esc(item.due)}` : ""}</span></div><button class="btn sm" data-id="${esc(item.id)}" data-status="${item.status === "done" ? "open" : "done"}">${item.status === "done" ? "Reopen" : "Mark done"}</button></li>`).join("") || '<li class="muted">Track a next step from a completed call report.</li>'}</ul>`;
+  $$("button[data-id]", followUps).forEach((button) => button.onclick = async () => {
+    button.disabled = true;
+    try {
+      const value = await api(`/api/clients/${client.id}/follow-ups/${button.dataset.id}`, { method: "PATCH", body: { status: button.dataset.status } });
+      if (state.client?.id === client.id) {
+        const item = state.client.commitments.find((x) => x.id === value.id);
+        if (item) Object.assign(item, value);
+        renderProfile();
+      }
+    } catch (error) { showError(error); button.disabled = false; }
+  });
 }
 
 const initials = (n) => String(n || "?").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -208,25 +350,33 @@ $("#startCall").addEventListener("click", async (e) => {
   if (!state.client) return toast({ kind: "note", title: "Pick a client first", text: "Select or create a client." });
   const source = $('input[name="source"]:checked').value;
   const b = e.target; b.disabled = true; b.textContent = state.client.kb ? "Starting…" : "Building knowledge base…";
-  try {
-    const s = await api("/api/sessions", { method: "POST", body: { clientId: state.client.id, source, repName: $("#repName").value, meetingLink: $("#meetingLink").value, speedMs: Number($("#demoSpeed").value) } });
-    state.client.kb = s.kb; renderKb(s.kb);
-    beginLive(s, source);
-    if (source === "replay") history.replaceState(null, "", `?session=${encodeURIComponent(s.id)}`);
-  } catch (err) { toast({ kind: "error", title: "Could not start", text: err.message }); }
+  try { await launchCall(source); }
+  catch (err) { toast({ kind: "error", title: "Could not start", text: err.message }); }
   finally { b.disabled = false; b.textContent = "Start live analysis →"; }
 });
 
+async function launchCall(source) {
+  const s = await api("/api/sessions", { method: "POST", body: { clientId: state.client.id, source, repName: $("#repName").value, meetingLink: $("#meetingLink").value, speedMs: Number($("#demoSpeed").value) } });
+  if (state.client?.id !== s.clientId) await selectClient(s.clientId);
+  state.client.kb = s.kb;
+  renderKb(s.kb);
+  beginLive(s, source, true);
+}
+
 // ---------------- live
-function beginLive(s, source) {
+function beginLive(s, source, fresh = false) {
   state.replay?.stop();
+  stopMic();
+  state.ws?.close();
   state.session = { id: s.id, source };
+  window.clientLuma?.showOverlay(s.id).catch(showError);
+  history.replaceState(null, "", `?session=${encodeURIComponent(s.id)}`);
   state.signals = []; state.filters.clear();
   $("#transcript").innerHTML = ""; $("#signals").innerHTML = "";
   $("#suggestions").innerHTML = `<p class="muted small">Suggestions appear here and as pop-ups as the client speaks.</p>`;
   $("#liveClient").textContent = state.client.company || state.client.name;
-  $("#liveSource").textContent = { demo: " · Simulated call", agent_test: " · Two-agent test", agent_meet: " · Two-agent test in Meet", browser: " · Microphone", meetstream: " · MeetStream bot", mia: " · MIA agent", practice: " · Practice call", replay: " · Recording replay" }[source];
-  $("#micBtn").hidden = source !== "browser";
+  $("#liveSource").textContent = ` · ${SOURCES[source] || source}`;
+  $("#micBtn").hidden = source !== "browser" || Boolean(window.clientLuma);
   $("#botStatus").hidden = true;
   $("#endCall").disabled = false; $(".dot.rec").style.display = "";
   setPulse({ sentiment: "neutral", deal_temperature: 50 });
@@ -258,7 +408,7 @@ function beginLive(s, source) {
       setBot({ label: data?.label || "Call ended", message: data?.message });
     }
   };
-  if (source === "browser") startMic();
+  if (source === "browser" && fresh) startMic();
   if (source === "replay") setupReplay(s);
 }
 
@@ -415,7 +565,10 @@ $("#endCall").addEventListener("click", async (e) => {
 // ---------------- report
 function showReport(m) {
   state.replay?.stop();
+  stopMic();
   if (state.ws) { state.ws.close(); state.ws = null; }
+  state.session = null;
+  history.replaceState(null, "", `?session=${encodeURIComponent(m.id)}`);
   $("#endCall").textContent = "End call & build report";
   const r = m.report;
   const used = (m.suggestions || []).filter((s) => s.status === "used").length;
@@ -429,7 +582,7 @@ function showReport(m) {
       ${r.transcript_quality ? `<span class="pill q-${r.transcript_quality}">Transcript: ${r.transcript_quality}</span>` : ""}
     </div>
     <div class="tile s9">
-      <div class="tile-head"><h2>${esc(state.client?.company || "Summary")}</h2><button class="btn sm" id="dlReport">Download .md</button></div>
+      <div class="tile-head"><h2>${esc(state.client?.company || "Summary")}</h2><div class="actions"><button class="btn sm" id="reportBack">Back to workspace</button><button class="btn sm" id="dlReport">Download .md</button></div></div>
       <p>${esc(r.executive_summary)}</p>
       <div class="report-meta"><span>${new Date(m.started_at).toLocaleString()}</span><span>${m.transcript.length} lines</span><span>${m.signals.length} signals</span>
         <span>${used}/${m.suggestions.length} suggestions used${m.suppressed_suggestions ? ` · ${m.suppressed_suggestions} held back` : ""}</span><span>${esc(m.report_engine)}</span></div>
@@ -439,16 +592,56 @@ function showReport(m) {
     <div class="tile s4"><div class="tile-head"><h2>Pain points</h2><span class="tag t-pain_point">${r.pain_points.length}</span></div>${list(r.pain_points, (p) => `<li><b>${esc(p.title)}</b> · ${esc(p.detail)}</li>`)}</div>
     <div class="tile s4"><div class="tile-head"><h2>Objections</h2><span class="tag t-objection">${r.objections.length}</span></div>${list(r.objections, (o) => `<li><span class="pill ${o.status}">${o.status.replace("_", " ")}</span> <b>${esc(o.objection)}</b> · ${esc(o.notes)}</li>`)}</div>
     <div class="tile s4"><div class="tile-head"><h2>Buying signals</h2><span class="tag t-buying_signal">${r.buying_signals.length}</span></div>${list(r.buying_signals, (x) => `<li>${esc(x)}</li>`)}</div>
-    <div class="tile s7"><div class="tile-head"><h2>Next steps</h2></div><div class="table-scroll"><table><tr><th>Action</th><th>Owner</th><th>Due</th></tr>
-      ${r.next_steps.map((n) => `<tr><td>${esc(n.action)}</td><td>${esc(n.owner)}</td><td>${esc(n.due)}</td></tr>`).join("")}</table></div></div>
+    <div class="tile s7"><div class="tile-head"><h2>Review next steps</h2></div><div id="reviewNextSteps"></div></div>
     <div class="tile s5"><div class="tile-head"><h2>Risks</h2><span class="tag t-risk">${r.risks.length}</span></div>${list(r.risks, (x) => `<li>${esc(x)}</li>`)}</div>
     <div class="tile s7"><div class="tile-head"><h2>Follow-up email</h2></div><pre>${esc(r.follow_up_email)}</pre></div>
     <div class="tile s5"><div class="tile-head"><h2>Insights & coaching</h2></div>${list([...r.insights, ...r.coaching_notes], (x) => `<li>${esc(x)}</li>`)}</div>
-    ${["practice", "agent_test", "agent_meet", "replay"].includes(m.source) ? "" : `<div class="tile s12 accent-tile"><span class="label">Client memory updated</span><p style="margin-top:6px">${esc(m.profile_after?.summary || "")}</p>
+    ${["demo", "practice", "agent_test", "agent_meet", "replay"].includes(m.source) ? "" : `<div class="tile s12 accent-tile"><span class="label">Client memory updated</span><p style="margin-top:6px">${esc(m.profile_after?.summary || "")}</p>
       <div class="chips">${(m.profile_after?.known_pain_points || []).map((x) => `<span class="chip">${esc(x)}</span>`).join("")}</div></div>`}`;
   $("#dlReport").addEventListener("click", () => download(`report-${m.id}.md`, toMarkdown(m)));
+  $("#reportBack").onclick = () => show("home");
   show("report");
-  loadClients(m.client_id);
+  loadClients(m.client_id).then(() => {
+    if (new URLSearchParams(location.search).get("session") === m.id) renderNextSteps(m);
+  }).catch(showError);
+}
+
+function renderNextSteps(meeting) {
+  const container = $("#reviewNextSteps");
+  const steps = meeting.report.next_steps || [];
+  const client = state.client;
+  const demo = meeting.source === "demo" && client?.id === "cli_demo_northwind";
+  const canTrack = demo || !["demo", "practice", "agent_test", "agent_meet", "replay"].includes(meeting.source);
+  const tracked = new Map((client?.commitments || []).filter((item) => item.meeting_id === meeting.id).map((item) => [item.next_step_index, item]));
+  container.innerHTML = steps.length ? steps.map((step, index) => {
+    const existing = tracked.get(index);
+    if (!canTrack || existing) {
+      const text = existing?.text || step.action;
+      const owner = existing?.owner || step.owner;
+      const due = existing?.due ?? step.due;
+      return `<div class="review-item"><b>${esc(text)}</b><p class="muted">${esc(OWNERS[owner])}${due ? ` · ${esc(due)}` : ""}${existing ? ` · ${existing.status === "done" ? "Completed" : "Tracked"}` : ""}</p></div>`;
+    }
+    return `<form class="review-item form" data-index="${index}">
+      <label>Action<input name="action" maxlength="300" value="${esc(step.action)}" required /></label>
+      <div class="row"><label>Owner<select name="owner">${Object.entries(OWNERS).map(([value, label]) => `<option value="${value}"${value === step.owner ? " selected" : ""}>${label}</option>`).join("")}</select></label><label>Due<input name="due" maxlength="120" value="${esc(step.due)}" /></label></div>
+      <button class="btn sm" type="submit">Track follow-up</button>
+    </form>`;
+  }).join("") : '<p class="empty">No next steps were captured.</p>';
+  $$("form", container).forEach((form) => form.onsubmit = async (event) => {
+    event.preventDefault();
+    const button = $("button", form);
+    const { action, owner, due } = form.elements;
+    button.disabled = true;
+    try {
+      const item = await api(`/api/meetings/${meeting.id}/follow-ups`, { method: "POST", body: { index: Number(form.dataset.index), action: action.value, owner: owner.value, due: due.value } });
+      if (state.client?.id === meeting.client_id && new URLSearchParams(location.search).get("session") === meeting.id) {
+        state.client.commitments ||= [];
+        if (!state.client.commitments.some((value) => value.id === item.id)) state.client.commitments.push(item);
+        renderNextSteps(meeting);
+        renderProfile();
+      }
+    } catch (error) { showError(error); button.disabled = false; }
+  });
 }
 
 function toMarkdown(m) {
@@ -485,23 +678,17 @@ function toast(s) {
   el.addEventListener("click", () => el.remove());
 }
 
-loadStatus();
+loadStatus().catch(showError);
+loadSettings().catch(showError);
 const pageParams = new URLSearchParams(location.search);
 loadClients(pageParams.get("replay")).then(async () => {
   if (pageParams.has("replay") && state.client?.recording_available) {
     const choice = $("#replaySource input");
     choice.checked = true;
     choice.dispatchEvent(new Event("change"));
+    show("prep");
   }
   const id = pageParams.get("session");
-  if (!id || state.session) return;
-  const live = (await api("/api/live")).find((s) => s.id === id);
-  if (live) {
-    await selectClient(live.clientId);
-    beginLive(live, live.source);
-    return;
-  }
-  const meeting = await api(`/api/meetings/${encodeURIComponent(id)}`);
-  await selectClient(meeting.client_id);
-  showReport(meeting);
+  if (id) await openSavedSession(id);
+  else if (!pageParams.has("replay")) await refreshWorkspace();
 }).catch((err) => toast({ kind: "error", title: "Could not load ClientLuma", text: err.message }));

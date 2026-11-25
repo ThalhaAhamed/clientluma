@@ -4,7 +4,22 @@
 
 ClientLuma gives you a brief before the call, a compact overlay during it, and a report afterward. Try the fictional demo without an account or API key. Connect MeetStream for live meetings, or replay a recording with its timestamped transcript and see which cues would have appeared.
 
-## Quick start
+## Windows desktop app
+
+Download the `clientluma-windows` artifact from the latest successful [CI run](https://github.com/ThalhaAhamed/clientluma/actions/workflows/ci.yml), extract the desktop ZIP, and open `ClientLuma.exe`. Choose **Try the demo** to watch the live overlay, open the completed report, and track a follow-up without any keys. Open **Settings** to connect an AI provider or MeetStream for your own calls. See the [desktop guide](docs/desktop.md) for setup and recording import.
+
+To run and package the desktop app from source on Windows, install Node.js 22.13 or newer and run:
+
+```sh
+npm ci
+npm ci --prefix overlay
+npm run desktop
+npm run desktop:build
+```
+
+The build writes the desktop ZIP under `dist/`.
+
+## Browser and self-hosted quick start
 
 Install Node.js 22.13 or newer, then run these commands from the project directory.
 
@@ -27,7 +42,7 @@ For Docker Compose 2.24 or newer, run `docker compose up --build -d` and open th
 
 | Source | What you need |
 | --- | --- |
-| **Simulated call** | A built-in fictional transcript. It runs with local coaching rules when no provider is configured. |
+| **Simulated call** | A built-in fictional transcript and local coaching rules. |
 | **Recording replay** | A local MP4 or WebM and a timestamped transcript. The video clock controls when text reaches the local coaching engine. [Import a replay](docs/replay.md). |
 | **Microphone** | A browser that supports Web Speech Recognition, such as Chrome or Edge. Choose your speaker role as you talk. You can also enter transcript lines manually. |
 | **MeetStream bot** | Your MeetStream key and a public HTTPS callback URL. The silent bot streams transcript updates from Google Meet, Zoom, or Teams. |
@@ -48,7 +63,7 @@ ClientLuma requests screen-capture protection through Electron. Capture behavior
 
 ## Configuration and data
 
-Copy `.env.example` to `.env` when you need integrations. Add `GEMINI_API_KEY` or `ANTHROPIC_API_KEY` for model-backed coaching. Add `MEETSTREAM_API_KEY` and a reachable `PUBLIC_URL` for meeting bots. `.env.example` lists the available settings. See [self-hosting](docs/self-hosting.md) for the complete setup.
+Configure integrations in **Settings**, or use the environment for a managed deployment. Values set in the environment take precedence. `.env.example` lists the available settings. See [self-hosting](docs/self-hosting.md) for server configuration.
 
 Client and meeting files are stored under `data/` by default. Recording replay uses local rules and produces a standalone report. For other call sources, the **Use local rules for this client** option routes text analysis through local rules. Browser speech and MeetStream have their own processing paths. For the data flow by source, see [architecture](docs/architecture.md).
 
