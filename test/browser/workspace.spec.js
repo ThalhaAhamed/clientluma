@@ -28,7 +28,7 @@ test.beforeAll(async () => {
     stdio: ["ignore", "pipe", "inherit"],
     env: {
       PATH: process.env.PATH, SystemRoot: process.env.SystemRoot,
-      PORT: "0", MIA_DATA_DIR: dataDir, MIA_PROVIDER: "offline", MIA_LISTEN_HOST: "127.0.0.1",
+      PORT: "0", MIA_DATA_DIR: dataDir, MIA_LISTEN_HOST: "127.0.0.1",
       PUBLIC_URL: "https://callback.example.test", MEETSTREAM_API_KEY: "fixture-only",
       MEETSTREAM_BASE_URL: `http://127.0.0.1:${provider.address().port}`,
       MIA_STITCH_MS: "25", MIA_ANALYZE_EVERY: "1",
@@ -60,6 +60,7 @@ test("all main routes fit desktop, tablet, and mobile and pass automated accessi
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.goto(origin);
+  await page.getByRole("button", { name: "Skip setup", exact: true }).click();
   const nav = page.getByRole("navigation", { name: "Application" });
   for (const width of [1440, 768, 320]) {
     await page.setViewportSize({ width, height: 800 });
@@ -77,6 +78,47 @@ test("all main routes fit desktop, tablet, and mobile and pass automated accessi
     }
   }
   expect(errors).toEqual([]);
+});
+
+test("first-run setup saves settings and a client inline, then opens Prepare", async ({ page, request }) => {
+  await page.setViewportSize({ width: 320, height: 660 });
+  await page.goto(origin);
+  const guide = page.getByRole("dialog", { name: "Set up Cuelensa" });
+  await expect(guide.getByText("Active database: SQLite")).toBeVisible();
+  const audit = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+  expect(audit.violations.map(({ id }) => id)).toEqual([]);
+  const next = guide.getByRole("button", { name: "Save and continue" });
+  const provider = guide.getByLabel("Database provider");
+  await provider.selectOption("postgresql");
+  await guide.getByRole("button", { name: "Test connection", exact: true }).click();
+  await expect(guide.getByText(/Enter a PostgreSQL connection URL/)).toBeVisible();
+  await provider.selectOption("sqlite");
+  await next.click();
+  await expect(guide.getByRole("heading", { name: "Connect meeting and analysis tools" })).toBeVisible();
+  await page.reload();
+  await expect(guide.getByRole("heading", { name: "Connect meeting and analysis tools" })).toBeVisible();
+  expect(await guide.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  const analysis = guide.getByLabel("Analysis provider");
+  await analysis.selectOption("gemini");
+  await next.click();
+  await expect(guide.getByText("Enter an API key for the selected engine.")).toBeVisible();
+  await analysis.selectOption("offline");
+  await next.click();
+  const name = guide.getByRole("textbox", { name: "Contact name", exact: true });
+  await expect(name).toBeVisible();
+  await name.fill("Fictional Onboarding Contact");
+  await guide.getByRole("button", { name: "Save client and continue", exact: true }).click();
+  await expect(guide.getByRole("heading", { name: "Your workspace is ready" })).toBeVisible();
+  await expect(guide.getByText("Key and callback configured")).toBeVisible();
+  await expect(guide.getByText("Fictional Onboarding Contact")).toBeVisible();
+  await guide.getByRole("button", { name: "Open Prepare", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Fictional Onboarding Contact", exact: true })).toBeVisible();
+  const [client] = await (await request.get(origin + "/api/clients")).json();
+  expect((await request.delete(origin + "/api/clients/" + client.id)).ok()).toBeTruthy();
+  await page.goto(origin);
+  await expect(page.getByRole("heading", { name: "Ready for your next call" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue setup" })).toBeHidden();
+  await expect(guide).toBeHidden();
 });
 
 test("profile, brief, document, toggle, compact overlay, report, and deletion work together", async ({ page, request }) => {
