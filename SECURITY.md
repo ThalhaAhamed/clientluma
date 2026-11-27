@@ -10,6 +10,8 @@ Settings entered in the app are stored locally as configuration. Use an operatin
 
 ## Data lifecycle
 
+See [Privacy and data handling](docs/privacy.md) for the data boundaries of each meeting mode and integration.
+
 - A meeting bot sends media to MeetStream. An enabled cloud AI provider receives the selected client context and transcript used for analysis.
 - Client Lens only works in the browser with on-device recognition and does not create a saved call.
 - Deleting a client removes its profiles, documents, website index, follow-ups, transcripts, and reports from the active application database. Backups, exported files, replaced databases, and MeetStream recordings have separate retention. SQLite and PostgreSQL also manage physical storage reclamation independently.
