@@ -12,12 +12,8 @@
     "start": "node --env-file-if-exists=.env server.js",
     "dev": "node --env-file-if-exists=.env --watch server.js",
     "tunnel": "node --env-file-if-exists=.env scripts/tunnel.mjs",
-    "overlay": "npm --prefix overlay start",
-    "desktop": "npm --prefix overlay start -- --desktop",
-    "desktop:build": "node scripts/build-desktop.mjs",
     "test:e2e": "playwright test",
     "test:postgres": "node --test test/postgres.test.js",
-    "desktop:smoke": "node scripts/smoke-desktop.mjs",
     "test:hosted": "node scripts/smoke-hosted.mjs"
   },
   "keywords": [

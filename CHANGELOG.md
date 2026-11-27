@@ -6,6 +6,7 @@
 - Add Prepare, Live Call, Reports, Settings, and a compact, sourced Client Lens overlay.
 - Add per-client website research, product documentation MCP, hosted authentication, and PostgreSQL storage.
 - Remove the legacy replay and practice workflows from the release tree.
+- Remove Electron and Windows packaging. The cue overlay opens in the browser.
 - Authenticate callbacks before parsing, isolate workspace access, redact provider failures, and delete saved reports with their client.
 - Add browser, accessibility, hosted security, and real PostgreSQL checks to the release workflow.
 

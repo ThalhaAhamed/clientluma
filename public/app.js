@@ -135,7 +135,6 @@ async function openSavedSession(id, historyMode = "push") {
   const revision = ++navigationRevision;
   if (state.session?.id === id) {
     show("live", { historyMode });
-    if (historyMode === "push" && state.session.lensEnabled) window.clientLuma?.showOverlay(id).catch(showError);
     return;
   }
   let session;
@@ -885,7 +884,6 @@ function beginLive(s, historyMode = "push") {
   state.liveWords = { rep: 0, client: 0 };
   $("#liveTalkRatio").innerHTML = renderTalkRatio(state.liveWords);
   $("#liveCueCount").textContent = "0 cues";
-  if (s.source === "meetstream" && s.lensEnabled) window.clientLuma?.showOverlay(s.id).catch(showError);
   state.signals = []; state.filters.clear();
   $("#transcript").innerHTML = ""; $("#signals").innerHTML = "";
   $("#suggestions").innerHTML = `<p class="muted small">Suggestions appear here and as pop-ups as the client speaks.</p>`;

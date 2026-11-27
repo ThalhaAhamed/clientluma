@@ -6,6 +6,7 @@ import http from "node:http";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { WebSocket as Socket } from "ws";
 
 test("meeting modes keep transcription and reports independent of Client Lens", { timeout: 20_000 }, async (t) => {
@@ -59,13 +60,18 @@ test("meeting modes keep transcription and reports independent of Client Lens", 
   await new Promise(resolve => provider.listen(0, "127.0.0.1", resolve));
   t.after(() => provider.close());
   const env = {
-    ...process.env, PORT: "0", MIA_LISTEN_HOST: "127.0.0.1", MIA_DATA_DIR: data, MIA_DESKTOP: "1",
-    MIA_ANALYZE_EVERY: "1", MIA_STITCH_MS: "20", MIA_WEBHOOK_SECRET: "test-secret",
+    ...process.env, PORT: "0", MIA_LISTEN_HOST: "127.0.0.1", MIA_DATA_DIR: data,
+    MIA_ANALYZE_EVERY: "1", MIA_STITCH_MS: "20", MIA_WEBHOOK_SECRET: "test-secret", MIA_CALLBACK_PORT: "0",
     MEETSTREAM_BASE_URL: "http://127.0.0.1:" + provider.address().port,
   };
   for (const name of ["MIA_OFFLINE", "MIA_PROVIDER", "MEETSTREAM_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "PUBLIC_URL",
     "MIA_DATABASE_PROVIDER", "MIA_DATABASE_URL", "MIA_DATABASE_PATH", "MIA_DATABASE_NAME"]) delete env[name];
-  const server = spawn(process.execPath, ["server.js"], { env, stdio: ["ignore", "pipe", "pipe"] });
+  const tunnelFile = path.join(workspace, ".tunnel-url");
+  const tunnelOrigin = "https://quick-tunnel.example.test";
+  await fs.writeFile(tunnelFile, tunnelOrigin);
+  const server = spawn(process.execPath, [fileURLToPath(new URL("../server.js", import.meta.url))], {
+    cwd: workspace, env, stdio: ["ignore", "pipe", "pipe"],
+  });
   t.after(async () => {
     if (server.exitCode === null && server.signalCode === null) {
       const closed = once(server, "close");
@@ -117,6 +123,7 @@ test("meeting modes keep transcription and reports independent of Client Lens", 
   await fetch(origin + `/api/clients/${websiteClient.id}`, { method: "DELETE" });
   const client = await (await post("/api/clients", { name: "Jordan Lee", company: "Fictional company" })).json();
   assert.equal((await get("/api/status")).engine, "offline");
+  assert.equal((await get("/api/status")).webhook, false);
   const configure = (body) => fetch(origin + "/api/settings", {
     method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   });
@@ -167,12 +174,15 @@ test("meeting modes keep transcription and reports independent of Client Lens", 
   const docRoute = "/api/clients/" + client.id + "/technical-sources/" + document.documents[0].id;
   assert.equal((await patch(docRoute, { approved: true })).status, 200);
 
+  await fs.writeFile(tunnelFile, `${tunnelOrigin}\n${process.pid}\n`);
   const started = await start("meetstream", false);
   assert.equal(started.status, 200);
   const session = await started.json();
   assert.equal(session.lensEnabled, false);
   assert.equal(bots.length, 1);
   assert.equal(bots[0].agent_config_id, undefined);
+  assert.equal(new URL(bots[0].live_transcription_required.webhook_url).origin, tunnelOrigin);
+  await fs.unlink(tunnelFile);
   assert.equal((await configure({ MIA_PROVIDER: "auto" })).status, 409);
   const route = "/api/sessions/" + session.id;
   const socketUrl = origin.replace("http:", "ws:") + "/ws?session=" + session.id;

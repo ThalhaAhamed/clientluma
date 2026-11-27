@@ -26,7 +26,7 @@ For **Client Lens only**, open Cuelensa in desktop Chrome with on-device English
 
 Expose only the authenticated transcript and status callbacks and the bearer-token-protected `/mia-tools/:name` routes. Keep the dashboard and its WebSocket `/ws` private.
 
-For local development with Cloudflare, set `MIA_CALLBACK_PORT=4043` in `.env`, start Cuelensa, then run `npm run tunnel` in another terminal. The script verifies the callback-only boundary before opening the tunnel. A quick tunnel’s URL can change, so restart the affected call after a tunnel restart.
+For local development with Cloudflare, set `MIA_CALLBACK_PORT=4043` in `.env`, start Cuelensa, then run `npm run tunnel` in another terminal. The script verifies the callback-only listener before opening the tunnel. While the tunnel is running, Cuelensa picks up its HTTPS URL automatically for new calls. A quick tunnel’s URL can change, so restart the affected call after a tunnel restart.
 
 Choose the assistant’s model in **Settings** or use the MeetStream model configuration in `.env.example`. Add your model key in MeetStream Integrations when using your own credentials. To enable product feature lookup, connect a trusted Streamable HTTP MCP search tool under **Product docs (MCP)**.
 

@@ -1,28 +1,13 @@
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const LABEL = { pain_point: "Pain", objection: "Objection", buying_signal: "Buying", requirement: "Requirement", question: "Question", risk: "Risk" };
-const bridge = window.miaOverlay; // present inside the Electron overlay, absent in a normal browser tab
 
 let sessionId = null, ws = null, current = null;
 let finishing = false;
 let lensEnabled = true;
 let callStatus = "";
 
-// ---- window controls
-if (bridge) {
-  $("#controls").hidden = false;
-  bridge.info().then((i) => { if (!i?.protected) { $("#shield").textContent = "Visible to screen sharing"; $("#shield").classList.add("off"); } });
-  bridge.onClickThrough((on) => $("#ctBtn").classList.toggle("on", on));
-} else {
-  $("#shield").hidden = true;
-}
-$("#hideBtn").onclick = () => bridge?.hide();
-$("#ctBtn").onclick = () => bridge?.setClickThrough(!$("#ctBtn").classList.contains("on"));
-const OPACITY = [1, 0.85, 0.65];
-let op = 0;
-$("#opBtn").onclick = () => { op = (op + 1) % OPACITY.length; bridge?.setOpacity(OPACITY[op]); };
-
-// Follow the selected desktop call, or the newest call in a browser preview.
+// Follow the selected call, or the newest call when opened without a session.
 const pinned = new URLSearchParams(location.search).get("session");
 async function poll() {
   try {
@@ -75,7 +60,7 @@ async function connect(id, info) {
       reset();
       $("#status").textContent = type === "ended" ? "Call ended · report ready" : data?.label || "Call ended";
       $("#dot").classList.remove("live");
-      if (type === "ended" && !bridge) {
+      if (type === "ended") {
         $("#finishedReport").href = `/?session=${encodeURIComponent(id)}`;
         $("#finishedReport").hidden = false;
       }
@@ -114,12 +99,6 @@ function showSuggestion(s, fresh) {
   $("#sourceBtn").hidden = !sourced;
   if (sourced) $("#sourceBtn").href = `/?session=${encodeURIComponent(sessionId)}&cue=${encodeURIComponent(s.id)}`;
 }
-
-$("#sourceBtn").onclick = event => {
-  if (!bridge || !current || !sessionId) return;
-  event.preventDefault();
-  bridge.openCue(sessionId, current.id).catch(() => {});
-};
 
 function mark(status) {
   if (!current || !sessionId) return;

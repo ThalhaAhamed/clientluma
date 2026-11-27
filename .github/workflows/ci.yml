@@ -35,27 +35,6 @@ jobs:
         if: runner.os == 'Windows'
       - run: npm run test:e2e
       - run: npm audit --audit-level=high
-      - run: npm ci --prefix overlay
-        if: runner.os == 'Windows'
-      - run: npm audit --prefix overlay --audit-level=high
-        if: runner.os == 'Windows'
-      - run: npm run desktop:smoke
-        if: runner.os == 'Windows'
-      - run: npm run desktop:build
-        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
-      - run: |
-          $archive = (Get-ChildItem dist -Filter 'cuelensa-*-windows-*.zip' | Select-Object -First 1).FullName
-          $destination = Join-Path $env:RUNNER_TEMP 'cuelensa-package-check'
-          Expand-Archive -LiteralPath $archive -DestinationPath $destination
-          node scripts/smoke-desktop.mjs (Join-Path $destination 'Cuelensa/Cuelensa.exe')
-        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
-        with:
-          name: cuelensa-windows
-          path: dist/cuelensa-*-windows-*.zip
-          if-no-files-found: error
-          retention-days: 14
 
   postgresql:
     runs-on: ubuntu-latest
