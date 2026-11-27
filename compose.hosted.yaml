@@ -1,0 +1,39 @@
+services:
+  clientluma:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MIA_LISTEN_HOST: 0.0.0.0
+      MIA_DATA_DIR: /app/data
+      MIA_APP_ORIGIN: https://${MIA_PUBLIC_HOST:?Set MIA_PUBLIC_HOST to your HTTPS hostname}
+      MIA_PROXY_TOKEN: ${MIA_PROXY_TOKEN:?Set a random private proxy token}
+      PORT: 4000
+    volumes:
+      - clientluma-data:/app/data
+    init: true
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - clientluma
+    environment:
+      MIA_PUBLIC_HOST: ${MIA_PUBLIC_HOST:?Set a public hostname}
+      MIA_HOST_USER: ${MIA_HOST_USER:?Set the workspace login name}
+      MIA_HOST_PASSWORD_HASH: ${MIA_HOST_PASSWORD_HASH:?Set the bcrypt password hash}
+      MIA_PROXY_TOKEN: ${MIA_PROXY_TOKEN:?Set a random private proxy token}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  clientluma-data:
+  caddy-data:
+  caddy-config:

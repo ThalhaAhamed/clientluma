@@ -1,25 +1,12 @@
-# ClientLuma
+# <img src="public/cuelensa-mark.svg" width="32" height="32" alt="" /> Cuelensa
 
-**Live coaching for client calls you host yourself.**
+**Meeting transcripts and optional live coaching for client work.**
 
-ClientLuma gives you a brief before the call, a compact overlay during it, and a report afterward. Try the fictional demo without an account or API key. Connect MeetStream for live meetings, or replay a recording with its timestamped transcript and see which cues would have appeared.
+Invite a silent transcript bot or a meeting assistant that answers questions about the selected client. Use Client Lens for live coaching and review the saved report after the meeting.
 
-## Windows desktop app
+[Quick start](#browser-quick-start) · [Meeting modes](#meeting-modes) · [Architecture](docs/architecture.md) · [HTTPS hosting](docs/hosting.md) · [Troubleshooting](docs/troubleshooting.md) · [Contributing](CONTRIBUTING.md)
 
-Download the `clientluma-windows` artifact from the latest successful [CI run](https://github.com/ThalhaAhamed/clientluma/actions/workflows/ci.yml), extract the desktop ZIP, and open `ClientLuma.exe`. Choose **Try the demo** to watch the live overlay, open the completed report, and track a follow-up without any keys. Open **Settings** to connect an AI provider or MeetStream for your own calls. See the [desktop guide](docs/desktop.md) for setup and recording import.
-
-To run and package the desktop app from source on Windows, install Node.js 22.13 or newer and run:
-
-```sh
-npm ci
-npm ci --prefix overlay
-npm run desktop
-npm run desktop:build
-```
-
-The build writes the desktop ZIP under `dist/`.
-
-## Browser and self-hosted quick start
+## Browser quick start
 
 Install Node.js 22.13 or newer, then run these commands from the project directory.
 
@@ -28,54 +15,52 @@ npm ci
 npm start
 ```
 
-1. Open [localhost:4000](http://localhost:4000) and select **Northwind Freight**, the fictional client.
-2. Choose **Simulated call** and select **Start live analysis**.
-3. Open **Overlay** to see the current suggestion, the last buyer quote, and the latest signal. The scripted call saves a report automatically.
+1. Open [localhost:4000](http://localhost:4000), add a client, and open **Settings**.
+2. Add your MeetStream key and public HTTPS callback URL.
+3. In **Prepare**, choose **Meeting bot**, **Client Lens only**, or **Meeting assistant**. Enter the meeting link for the bot or assistant. For Client Lens only, open the meeting in another browser tab and share its tab audio.
+4. Send the bot and admit it if the meeting requires admission. Review the transcript during the call and open the saved report afterward.
 
-For Docker Compose 2.24 or newer, run `docker compose up --build -d` and open the same address. See [self-hosting](docs/self-hosting.md) for persistence, configuration, and webhooks.
+For Docker Compose 2.24 or newer, run `docker compose up --build -d` and open the same address. Follow the [HTTPS hosting guide](docs/hosting.md) for a single-user, password-protected deployment with MeetStream callbacks.
 
-## What you can do
+The [source repository](https://github.com/ThalhaAhamed/clientluma) retains its original GitHub name, ClientLuma. See [desktop setup](docs/desktop.md) for the optional Windows overlay.
 
-| Before | During | After |
-| --- | --- | --- |
-| Save client notes, stakeholders, PDFs, DOCX files, or text. Build a brief with questions, objections, and call goals. | Watch for pain points, objections, requirements, buying signals, questions, and risks. Mark individual coaching cues as used or dismissed. | Review evidence and next steps, export a Markdown report, and carry real-call findings forward into client memory. |
+## Meeting modes
 
-| Source | What you need |
-| --- | --- |
-| **Simulated call** | A built-in fictional transcript and local coaching rules. |
-| **Recording replay** | A local MP4 or WebM and a timestamped transcript. The video clock controls when text reaches the local coaching engine. [Import a replay](docs/replay.md). |
-| **Microphone** | A browser that supports Web Speech Recognition, such as Chrome or Edge. Choose your speaker role as you talk. You can also enter transcript lines manually. |
-| **MeetStream bot** | Your MeetStream key and a public HTTPS callback URL. The silent bot streams transcript updates from Google Meet, Zoom, or Teams. |
-| **Practice call with an AI client** | MeetStream and its hosted MIA configuration. You speak with a buyer persona while a silent bot transcribes. |
-| **Two-agent test** | A configured Gemini or Claude provider. Two role prompts generate a local practice exchange. The **in Meet** mode also requires MeetStream and a public HTTPS callback URL. |
-| **MIA agent** | MeetStream and its hosted MIA configuration. The voice agent answers questions from client context when addressed and can record commitments. |
+- **Meeting bot** joins silently to capture the transcript.
+- **Meeting assistant** stays quiet until addressed by its wake phrase, usually **Hey MIA**. Ask about the selected client or ask it to log a follow-up. It uses its own live transcription when available and a separate silent transcript bot otherwise.
+- **Client Lens only** uses on-device English speech recognition in supported desktop browsers. It shows live cues in Cuelensa without joining the meeting or saving audio, a transcript, or a report. The first run may need an English speech pack. On a separate Meeting bot call, the **Client Lens** switch enables coaching and the cue overlay opens from the live view.
 
-## Desktop overlay
+In **Prepare**, approve verified technical documents for the client. A relevant technical question can then show a compact **View source** cue. The approved excerpt opens in the workspace.
 
-```sh
-npm ci --prefix overlay
-npm run overlay
-```
+Reports contain transcript-backed observations and proposed next steps. You can track a next step explicitly and export the report as Markdown. Deleting a client removes its reports and transcripts from the active Cuelensa database. Manage MeetStream’s separate recording retention in your MeetStream workspace. [Security and data handling](SECURITY.md)
 
-The Electron window follows the newest active call. Use **Ctrl+Shift+M** to show or hide it and **Ctrl+Shift+L** to toggle click-through. Use **Command** instead of **Ctrl** on macOS. The tray menu also has these controls.
+## Client Website Intelligence
 
-ClientLuma requests screen-capture protection through Electron. Capture behavior depends on the operating system and sharing tool. Verify it with your own setup. The browser overlay is visible when its tab or window is shared.
+In **Prepare → Client → Edit client**, enter a public website and save the profile. Open **Website intelligence** to follow progress, review excerpts with their source URLs, refresh the index, or remove the website and its research. Generate a new brief after the index is ready. Website research also helps tailor live coaching questions and post-call recommendations. Call evidence still comes from the transcript.
+
+Each client’s excerpts stay in that client’s database record. A successful refresh or removal clears the generated client brief so it can be rebuilt with current research. If a refresh fails, the previous index stays available. Saved meeting reports retain their original content. Cloud AI providers can receive relevant excerpts when selected. The crawler and its index work with local rules and require no AI API key.
+
+CuelensaBot indexes up to eight relevant public HTML pages linked from the site. It checks robots.txt and page indexing directives, spaces out requests, and validates public DNS addresses and redirect destinations. Sites that require sign-in, render content only in JavaScript, or keep pricing private may yield limited results. The server needs outbound HTTP and HTTPS access to index websites.
 
 ## Configuration and data
 
 Configure integrations in **Settings**, or use the environment for a managed deployment. Values set in the environment take precedence. `.env.example` lists the available settings. See [self-hosting](docs/self-hosting.md) for server configuration.
 
-Client and meeting files are stored under `data/` by default. Recording replay uses local rules and produces a standalone report. For other call sources, the **Use local rules for this client** option routes text analysis through local rules. Browser speech and MeetStream have their own processing paths. For the data flow by source, see [architecture](docs/architecture.md).
+Choose the **System AI provider** for prep, coaching and reports. Configure **Meeting assistant model** separately for MIA’s spoken answers. Under **Product docs (MCP)**, save a trusted Streamable HTTP endpoint, its read-only search tool name and query field, and a bearer token if required. **Test saved connection** checks tool discovery. MIA uses that tool for product feature questions.
+
+SQLite at `data/workspace.sqlite` is the default. In **Settings → Database**, choose a different SQLite file or PostgreSQL. For self-hosted PostgreSQL, Supabase, or Neon, paste the database connection URL and choose **Test connection**. Save and restart Cuelensa to open the selected database and create its tables. Existing records stay in their original database. See [self-hosting](docs/self-hosting.md) for environment settings and database permissions.
 
 ## Development
 
 ```sh
 npm ci
 npm test
+npx playwright install chromium
+npm run test:e2e
 npm run dev
 ```
 
-The server uses Node.js, Express, and WebSockets. The dashboard is plain HTML, CSS, and JavaScript. The tests boot an isolated instance and check the offline call, report retention, replay timing, and local-access boundary. See [contributing](CONTRIBUTING.md) and [security](SECURITY.md).
+The server uses Node.js, Express, and WebSockets. The dashboard is plain HTML, CSS, and JavaScript. Tests run with isolated data and exercise the browser, capture callbacks, citation UI, report export, data deletion, local audio behavior, and access boundaries. See [contributing](CONTRIBUTING.md) for PostgreSQL and Windows checks.
 
 ## License
 

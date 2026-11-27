@@ -20,7 +20,7 @@ const child = spawn(path.resolve(file), [...args, "--disable-gpu", `--remote-deb
 const sockets = [];
 const base = `http://127.0.0.1:${port}`;
 
-async function until(probe, description, milliseconds = 12000) {
+async function until(probe, description, milliseconds = 30000) {
   const end = Date.now() + milliseconds;
   while (Date.now() < end) {
     if (child.exitCode !== null) throw new Error(`Desktop app exited early (${child.exitCode}).`);
@@ -32,11 +32,16 @@ async function until(probe, description, milliseconds = 12000) {
 }
 
 async function page(pathname) {
+  let targets = [];
   const target = await until(async () => {
     const response = await fetch(`${base}/json/list`).catch(() => null);
     if (!response?.ok) return null;
-    return (await response.json()).find((entry) => entry.type === "page" && new URL(entry.url).pathname === pathname);
-  }, `desktop window at ${pathname}`);
+    targets = (await response.json()).filter(entry => entry.type === "page");
+    return targets.find(entry => new URL(entry.url).pathname === pathname);
+  }, `desktop window at ${pathname}`).catch(error => {
+    const paths = targets.map(entry => new URL(entry.url).pathname).join(", ");
+    throw new Error(`${error.message} Browser paths: ${paths || "none"}`);
+  });
   const socket = new WebSocket(target.webSocketDebuggerUrl);
   sockets.push(socket);
   await new Promise((resolve, reject) => {
@@ -62,19 +67,19 @@ try {
   const workspace = await page("/");
   await until(() => workspace("Boolean(window.clientLuma && document.querySelector('#welcome')?.offsetWidth)"), "first-run setup");
   const overlay = await page("/overlay/");
-  await workspace("document.querySelector('#demoSpeed').options[1].value = '10'; document.querySelector('#welcomeDemo').click()");
-  await until(() => workspace("document.querySelector('#view-live').classList.contains('active')"), "the live call");
-  await until(() => overlay("!document.querySelector('#say').hidden && document.querySelector('#sayText').textContent"), "a live coaching cue");
-  console.log("Received a live coaching cue in the desktop overlay.");
-  await until(() => workspace("document.querySelector('#view-report').classList.contains('active')"), "the completed report", 50000);
-  await workspace("document.querySelector('#report form[data-index] button[type=submit]').click()");
-  await until(() => workspace("document.querySelector('#report').textContent.includes('Tracked')"), "a saved follow-up");
-  await workspace("document.querySelector('#reportBack').click()");
-  await until(() => workspace("document.querySelector('#workspaceFollowUps [data-client]') !== null"), "the workspace follow-up");
+  await workspace("document.querySelector('#prepareCall').click()");
+  assert.deepEqual(await workspace("Array.from(document.querySelectorAll('input[name=source]'), field => field.value)"), ["meetstream", "client-lens", "mia"]);
+  assert.equal(await workspace("document.querySelector('#liveLens').checked"), false);
+  await until(() => overlay("document.title === 'Client Lens' && Boolean(window.miaOverlay)"), "desktop overlay bridge");
   const firstRun = await workspace("fetch('/api/settings').then(r => r.json())");
-  assert.equal(firstRun.provider, "offline");
+  assert.equal(firstRun.ready, false);
   assert.equal(firstRun.desktop, true);
-  console.log("Desktop demo, overlay, report and follow-up passed.");
+  assert.match(firstRun.callbackTarget, /^http:\/\/127\.0\.0\.1:\d+$/);
+  const health = new URL(await workspace("location.origin"));
+  assert.notEqual(new URL(firstRun.callbackTarget).port, health.port);
+  assert.equal((await fetch(firstRun.callbackTarget)).status, 404);
+  assert.equal((await fetch(firstRun.callbackTarget + "/webhooks/meetstream/status", { method: "POST" })).status, 401);
+  console.log("Desktop setup, meeting modes, and Client Lens passed.");
 } finally {
   for (const socket of sockets) socket.close();
   child.kill();

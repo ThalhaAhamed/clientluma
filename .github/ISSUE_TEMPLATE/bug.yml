@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a reproducible problem using fictional or redacted data.
+title: "Bug: "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Cuelensa version or commit
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the operating system, browser, database, and installation method.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce and expected result
+      description: Use sample data. Omit tokens, private links, full transcripts, and recordings.
+    validations:
+      required: true

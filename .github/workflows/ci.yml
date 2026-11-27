@@ -3,34 +3,135 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    timeout-minutes: 12
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm test
-      - if: matrix.os == 'windows-latest'
-        run: npm ci --prefix overlay
-      - if: matrix.os == 'windows-latest'
-        run: npm run desktop:build
-      - if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v7.0.2
+      - run: npx playwright install --with-deps chromium
+        if: runner.os == 'Linux'
+      - run: npx playwright install chromium
+        if: runner.os == 'Windows'
+      - run: npm run test:e2e
+      - run: npm audit --audit-level=high
+      - run: npm ci --prefix overlay
+        if: runner.os == 'Windows'
+      - run: npm audit --prefix overlay --audit-level=high
+        if: runner.os == 'Windows'
+      - run: npm run desktop:smoke
+        if: runner.os == 'Windows'
+      - run: npm run desktop:build
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
+      - run: |
+          $archive = (Get-ChildItem dist -Filter 'cuelensa-*-windows-*.zip' | Select-Object -First 1).FullName
+          $destination = Join-Path $env:RUNNER_TEMP 'cuelensa-package-check'
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination
+          node scripts/smoke-desktop.mjs (Join-Path $destination 'Cuelensa/Cuelensa.exe')
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
         with:
-          name: clientluma-windows
-          path: dist/clientluma-*-windows-*.zip
+          name: cuelensa-windows
+          path: dist/cuelensa-*-windows-*.zip
           if-no-files-found: error
-          compression-level: 0
+          retention-days: 14
+
+  postgresql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: fixture
+          POSTGRES_DB: cuelensa_test_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd "pg_isready -U fixture -d cuelensa_test_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+        ports:
+          - 5432/tcp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:postgres
+        env:
+          CUELENSA_TEST_POSTGRES_URL: postgresql://fixture@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/cuelensa_test_ci?sslmode=disable
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: docker compose config --quiet
+      - run: docker compose -f compose.hosted.yaml config --quiet
+        env:
+          MIA_PUBLIC_HOST: calls.example.test
+          MIA_HOST_USER: fixture
+          MIA_HOST_PASSWORD_HASH: fixture-placeholder
+          MIA_PROXY_TOKEN: fixture-token-for-compose-config-only
+      - run: docker build --tag cuelensa:ci .
+      - run: |
+          docker save --output "$RUNNER_TEMP/cuelensa-image.tar" cuelensa:ci
+          docker run --rm --mount "type=bind,src=$RUNNER_TEMP/cuelensa-image.tar,dst=/image.tar,readonly" aquasec/trivy:0.76.2 image --input /image.tar --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --timeout 5m
+      - run: |
+          docker run --detach --rm --name cuelensa-ci -p 127.0.0.1:4100:4000 cuelensa:ci
+          trap 'docker stop cuelensa-ci' EXIT
+          ready=false
+          for attempt in {1..30}; do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:4100/api/status; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            docker logs cuelensa-ci
+            exit 1
+          fi
+          docker exec cuelensa-ci node -e 'if (process.getuid() === 0) process.exit(1)'
+      - run: npm run test:hosted
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - run: docker run --rm --user "$(id -u):$(id -g)" --mount "type=bind,src=$PWD,dst=/repo,readonly" ghcr.io/gitleaks/gitleaks:v8.30.1 git --redact=100 --log-opts="--all" /repo

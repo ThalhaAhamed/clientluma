@@ -1,0 +1,36 @@
+:root {
+  color-scheme: light;
+  --bg: #e8efeb;
+  --shell: #f8faf9;
+  --tile: #fff;
+  --sunk: #eaf1ed;
+  --line: #d9e5de;
+  --line-strong: #c6d7cd;
+  --ink: #17231d;
+  --ink-2: #3b4d45;
+  --muted: #52645a;
+  --charcoal: #202c29;
+  --charcoal-raised: #303f3a;
+  --on-charcoal: #f6fbf8;
+  --on-charcoal-muted: #c0d1c7;
+  --mint: #a9efd0;
+  --mint-hover: #8ce2bc;
+  --mint-line: #a4d8bf;
+  --accent: #175d49;
+  --accent-soft: #e3f7ed;
+  --accent-line: #b7decb;
+  --mint-surface: #dcefe3;
+  --mint-deep-surface: #cde8dc;
+  --lavender-surface: #e9e5f5;
+  --peach-surface: #f7e8df;
+
+  --pain: #c2410c; --pain-bg: #fff1e9;
+  --obj: #a16207; --obj-bg: #fdf6dd;
+  --buy: #15803d; --buy-bg: #e9f7ee;
+  --req: #1d4ed8; --req-bg: #ebf1ff;
+  --q: #6d28d9; --q-bg: #f2edff;
+  --risk: #be185d; --risk-bg: #fdecf4;
+
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}

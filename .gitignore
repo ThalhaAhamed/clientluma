@@ -11,5 +11,14 @@ coverage/
 *.webm
 *.wav
 *.mp3
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 IMPLEMENTATION_PLAN.md
 docs/mia-architecture.html
+
+.mcp.json
+playwright-report/
+test-results/
+*.vtt
+*.srt

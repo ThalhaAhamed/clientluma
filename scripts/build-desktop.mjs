@@ -18,9 +18,9 @@ const executable = requireElectron("electron");
 const electron = path.dirname(executable);
 await fs.mkdir(dist, { recursive: true });
 const stage = await fs.mkdtemp(path.join(dist, "desktop-"));
-const bundle = path.join(stage, "ClientLuma");
+const bundle = path.join(stage, "Cuelensa");
 const app = path.join(bundle, "resources", "app");
-const zip = path.join(dist, `clientluma-${manifest.version}-windows-${process.arch}.zip`);
+const zip = path.join(dist, `cuelensa-${manifest.version}-windows-${process.arch}.zip`);
 
 function run(command, args, cwd) {
   const result = spawnSync(command, args, { cwd, stdio: "inherit" });
@@ -30,16 +30,16 @@ function run(command, args, cwd) {
 
 try {
   await fs.cp(electron, bundle, { recursive: true });
-  await fs.rename(path.join(bundle, path.basename(executable)), path.join(bundle, "ClientLuma.exe"));
+  await fs.rename(path.join(bundle, path.basename(executable)), path.join(bundle, "Cuelensa.exe"));
   await fs.mkdir(app, { recursive: true });
   // Use the checked-in application and a fresh dependency install. User data lives outside the bundle.
   for (const source of ["package-lock.json", "LICENSE", "server.js", "lib", "public", "overlay/package.json", "overlay/main.js", "overlay/preload.js", "overlay/workspace-preload.js", "overlay/offline.html"]) {
     await fs.cp(path.join(root, source), path.join(app, source), { recursive: true });
   }
-  await fs.writeFile(path.join(app, "package.json"), JSON.stringify({ ...manifest, main: "overlay/main.js", productName: "ClientLuma" }, null, 2));
+  await fs.writeFile(path.join(app, "package.json"), JSON.stringify({ ...manifest, main: "overlay/main.js", productName: "Cuelensa" }, null, 2));
   run(process.execPath, [process.env.npm_execpath, "ci", "--omit=dev", "--no-audit", "--no-fund"], app);
   await fs.copyFile(path.join(root, "docs", "desktop.md"), path.join(bundle, "Getting Started.md"));
-  run("tar.exe", ["-a", "-c", "-f", zip, "-C", stage, "ClientLuma"], root);
+  run("tar.exe", ["-a", "-c", "-f", zip, "-C", stage, "Cuelensa"], root);
   console.log(zip);
 } finally {
   await fs.rm(stage, { recursive: true, force: true });

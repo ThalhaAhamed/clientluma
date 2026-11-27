@@ -1,9 +1,9 @@
-// ClientLuma desktop overlay follows the live call.
+// Cuelensa desktop overlay follows the live call.
 // It is excluded from screen capture (Windows 10 2004+: SetWindowDisplayAffinity WDA_EXCLUDEFROMCAPTURE via
 // setContentProtection), so it stays on your screen but does not appear when you share your screen in
 // Zoom, Google Meet or Teams, or in recordings and screenshots.
-const { app, BrowserWindow, dialog, globalShortcut, screen, Tray, Menu, nativeImage, ipcMain, utilityProcess } = require("electron");
-const fs = require("node:fs/promises");
+const { app, BrowserWindow, dialog, globalShortcut, screen, shell, Tray, Menu, nativeImage, ipcMain, utilityProcess } = require("electron");
+const { existsSync } = require("node:fs");
 const path = require("node:path");
 
 const desktop = process.argv.includes("--desktop") || app.isPackaged;
@@ -32,8 +32,9 @@ function startServer() {
       ...process.env, PORT: process.env.MIA_DESKTOP_PORT || "4040",
       MIA_DATA_DIR: process.env.MIA_DESKTOP_DATA_DIR || path.join(app.getPath("userData"), "workspace"),
       MIA_LISTEN_HOST: "127.0.0.1", MIA_DESKTOP: "1",
+      MIA_CALLBACK_PORT: process.env.MIA_CALLBACK_PORT || "0",
     };
-    service = utilityProcess.fork(path.join(root, "server.js"), [], { cwd: root, env, serviceName: "ClientLuma Local Service" });
+    service = utilityProcess.fork(path.join(root, "server.js"), [], { cwd: root, env, serviceName: "Cuelensa Local Service" });
     const timeout = setTimeout(() => reject(new Error("The local service did not start in time.")), 12000);
     service.once("message", ({ port }) => {
       clearTimeout(timeout);
@@ -43,7 +44,7 @@ function startServer() {
     service.once("exit", (code) => {
       clearTimeout(timeout);
       if (workspace && !quitting) {
-        dialog.showErrorBox("ClientLuma service stopped", "Reopen ClientLuma to recover the saved workspace.");
+        dialog.showErrorBox("Cuelensa service stopped", "Reopen Cuelensa to recover the saved workspace.");
         app.quit();
       } else reject(new Error(`The local service stopped with exit code ${code}. Check whether port ${env.PORT} is already in use.`));
     });
@@ -53,12 +54,17 @@ function startServer() {
 function showWorkspace() { workspace.show(); workspace.focus(); }
 function createWorkspace() {
   workspace = new BrowserWindow({
-    title: "ClientLuma", width: 1280, height: 850, minWidth: 800, minHeight: 540, show: false, autoHideMenuBar: true,
+    title: "Cuelensa", width: 1280, height: 850, minWidth: 800, minHeight: 540, show: false, autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, "workspace-preload.js"), sandbox: true, contextIsolation: true, nodeIntegration: false },
   });
   restrictNavigation(workspace);
   workspace.webContents.setWindowOpenHandler(({ url }) => {
-    if (url === `${server}/overlay/` && !win.isVisible()) toggleVisible();
+    const target = new URL(url);
+    if (target.origin === new URL(server).origin && target.pathname === "/overlay/") {
+      showSessionOverlay(target.searchParams.get("session")).catch(() => {});
+    } else if (target.protocol === "https:" && !target.username && !target.password) {
+      shell.openExternal(target.href).catch(() => {});
+    }
     return { action: "deny" };
   });
   workspace.once("ready-to-show", showWorkspace);
@@ -134,49 +140,54 @@ function rebuildTray() {
     { label: "Click-through", type: "checkbox", checked: clickThrough, accelerator: KEYS.clickThrough, click: () => setClickThrough(!clickThrough) },
     { type: "separator" },
     { label: PROTECT ? "Screen capture protection on" : "Screen capture protection off", enabled: false },
-    { label: desktop ? "Quit ClientLuma" : "Quit ClientLuma overlay", click: quit },
+    { label: desktop ? "Quit Cuelensa" : "Quit Cuelensa overlay", click: quit },
   ]));
 }
 
 function createTray() {
-  // 16x16 teal dot, drawn in code so the overlay ships with no image files.
+  // 16x16 mint dot, drawn in code so the overlay ships with no image files.
   const size = 16;
   const buf = Buffer.alloc(size * size * 4);
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const d = Math.hypot(x - 7.5, y - 7.5);
     const i = (y * size + x) * 4;
-    if (d < 7) { buf[i] = 0x6e; buf[i + 1] = 0x76; buf[i + 2] = 0x0f; buf[i + 3] = 255; } // BGRA
+    if (d < 7) { buf[i] = 0xd0; buf[i + 1] = 0xef; buf[i + 2] = 0xa9; buf[i + 3] = 255; } // BGRA
   }
   tray = new Tray(nativeImage.createFromBitmap(buf, { width: size, height: size }));
-  tray.setToolTip("ClientLuma overlay");
+  tray.setToolTip("Cuelensa overlay");
   tray.on("click", desktop ? showWorkspace : toggleVisible);
   rebuildTray();
 }
 
-ipcMain.on("overlay:hide", () => { win.hide(); rebuildTray(); });
-ipcMain.on("overlay:click-through", (_e, on) => setClickThrough(Boolean(on)));
-ipcMain.on("overlay:opacity", (_e, v) => win.setOpacity(Math.min(1, Math.max(0.35, Number(v) || 1))));
-ipcMain.handle("overlay:info", () => ({ protected: PROTECT, keys: KEYS, server }));
-ipcMain.handle("workspace:show-overlay", async (event, sessionId) => {
-  if (event.sender !== workspace?.webContents || typeof sessionId !== "string" || !/^mtg_[a-f0-9]+$/.test(sessionId)) return;
+const validSession = id => typeof id === "string" && /^mtg_[a-f0-9]{10}$/.test(id);
+const trusted = (event, window) => event.sender === window?.webContents && event.senderFrame?.url &&
+  new URL(event.senderFrame.url).origin === new URL(server).origin;
+ipcMain.on("overlay:hide", event => { if (trusted(event, win)) { win.hide(); rebuildTray(); } });
+ipcMain.on("overlay:click-through", (event, on) => { if (trusted(event, win)) setClickThrough(Boolean(on)); });
+ipcMain.on("overlay:opacity", (event, v) => {
+  if (trusted(event, win)) win.setOpacity(Math.min(1, Math.max(0.35, Number(v) || 1)));
+});
+ipcMain.handle("overlay:info", event => trusted(event, win) ? { protected: PROTECT, keys: KEYS } : null);
+ipcMain.handle("overlay:open-cue", async (event, sessionId, cueId) => {
+  if (!trusted(event, win) || !validSession(sessionId) || typeof cueId !== "string" || !/^sug_[a-f0-9]{10}$/.test(cueId)) return;
+  const target = new URL("/", server);
+  target.search = new URLSearchParams({ session: sessionId, cue: cueId });
+  if (workspace) {
+    await workspace.loadURL(target.href);
+    showWorkspace();
+  } else await shell.openExternal(target.href);
+});
+async function showSessionOverlay(sessionId) {
+  if (!validSession(sessionId)) return;
   if (sessionId !== overlaySession) {
     overlaySession = sessionId;
     await win.loadURL(overlayUrl());
   }
   if (!win.isVisible()) toggleVisible();
+}
+ipcMain.handle("workspace:show-overlay", (event, sessionId) => {
+  if (trusted(event, workspace)) return showSessionOverlay(sessionId);
 });
-ipcMain.handle("workspace:choose-replay", async (event) => {
-  if (event.sender !== workspace?.webContents || new URL(event.senderFrame.url).origin !== server) return null;
-  const select = (title, name, extensions) => dialog.showOpenDialog(workspace, { title, filters: [{ name, extensions }], properties: ["openFile"] });
-  const media = await select("Choose the call recording", "Recording", ["mp4", "webm"]);
-  if (media.canceled) return null;
-  const transcript = await select("Choose the timestamped transcript", "Transcript", ["json"]);
-  if (transcript.canceled) return null;
-  const [file] = transcript.filePaths;
-  if ((await fs.stat(file)).size > 20 * 1024 * 1024) throw new Error("Transcript is larger than 20 MB.");
-  return { file: media.filePaths[0], transcript: JSON.parse((await fs.readFile(file, "utf8")).replace(/^\uFEFF/, "")) };
-});
-
 async function quit() {
   if (desktop) {
     const active = await fetch(`${server}/api/workspace`).then((r) => r.json()).then((data) => data.active.length).catch(() => 0);
@@ -190,7 +201,11 @@ async function quit() {
 }
 
 if (desktop) {
-  app.setName("ClientLuma");
+  const legacyProfile = path.join(app.getPath("appData"), "ClientLuma");
+  app.setName("Cuelensa");
+  if (!process.env.MIA_DESKTOP_DATA_DIR && existsSync(path.join(legacyProfile, "workspace")) && !existsSync(path.join(app.getPath("userData"), "workspace"))) {
+    app.setPath("userData", legacyProfile);
+  }
   if (!app.requestSingleInstanceLock()) app.exit(0);
   app.on("second-instance", () => { if (workspace) showWorkspace(); });
 }
@@ -202,7 +217,7 @@ app.whenReady().then(async () => {
   globalShortcut.register(KEYS.toggle, toggleVisible);
   globalShortcut.register(KEYS.clickThrough, () => setClickThrough(!clickThrough));
 }).catch((error) => {
-  dialog.showErrorBox("Could not start ClientLuma", error.message);
+  dialog.showErrorBox("Could not start Cuelensa", error.message);
   app.quit();
 });
 app.on("before-quit", () => { quitting = true; });

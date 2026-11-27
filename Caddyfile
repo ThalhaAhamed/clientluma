@@ -1,0 +1,24 @@
+{
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$MIA_PUBLIC_HOST} {
+	@meetstream path /webhooks/meetstream/transcript /webhooks/meetstream/status /mia-tools/*
+	handle @meetstream {
+		reverse_proxy clientluma:4000 {
+			header_up -X-ClientLuma-Proxy
+		}
+	}
+
+	handle {
+		basic_auth {
+			{$MIA_HOST_USER} {$MIA_HOST_PASSWORD_HASH}
+		}
+		reverse_proxy clientluma:4000 {
+			header_up X-ClientLuma-Proxy {$MIA_PROXY_TOKEN}
+			header_up -Authorization
+		}
+	}
+}
