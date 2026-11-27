@@ -15,7 +15,7 @@ npm ci
 npm start
 ```
 
-Open [localhost:4000](http://localhost:4000). In **Prepare**, create a client, optionally add their public website, and generate a brief. Local analysis works without an AI key.
+Open [localhost:4000](http://localhost:4000). A new workspace opens a guided setup where you choose storage, connect optional services, and add a first client. You can skip it and reopen **Setup guide** from Settings. Add a public website for sourced research and generate a brief in **Prepare**. Local analysis works without an AI key.
 
 To capture a call, configure a MeetStream API key and an [HTTPS callback route](docs/integrations.md#meetstream). Choose **Meeting bot**, paste your meeting link, and admit the bot if your host settings require it. In **Live call**, enable **Client Lens** to receive coaching and open the compact cue overlay. Choose **End call & build report** when you’re done.
 

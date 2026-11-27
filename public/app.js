@@ -261,8 +261,195 @@ for (const key of secretNames) {
     catch (error) { $("#settingsStatus").textContent = error.message; }
   };
 }
-$("#welcomeSetup").onclick = () => show("settings");
 $("#settingsBack").onclick = () => show("home");
+
+// ---------------- first-run setup
+const setupGuide = $("#setupGuide");
+const setupSteps = $$("[data-setup-step]", setupGuide);
+const setupMarkers = $$(".setup-steps li", setupGuide);
+const setupStorageForm = $("#setupStorageForm");
+const setupConnectionsForm = $("#setupConnectionsForm");
+const setupClientForm = $("#setupClientForm");
+const setupKey = "cuelensa.setup";
+let setupProgress = null;
+let setupBusy = false;
+try { setupProgress = localStorage.getItem(setupKey); } catch { /* Storage is optional. */ }
+const setupStep = () => Math.min(setupSteps.length - 1, Math.max(0, Number(setupProgress) || 0));
+const analysisKeys = { gemini: "GEMINI_API_KEY", claude: "ANTHROPIC_API_KEY" };
+
+function checkAnalysisKey(body) {
+  const required = analysisKeys[body.MIA_PROVIDER];
+  if (required && !body[required]?.trim() && !state.settings?.configured[required]) throw new Error("Enter an API key for the selected engine.");
+}
+
+function setupFeedback(message = "") {
+  const feedback = $("#setupFeedback");
+  feedback.textContent = message;
+  feedback.hidden = !message;
+}
+
+function renderSetupFields() {
+  const postgres = setupStorageForm.elements.MIA_DATABASE_PROVIDER.value === "postgresql";
+  $("#setupPostgres").hidden = !postgres;
+  const provider = setupConnectionsForm.elements.MIA_PROVIDER.value;
+  $("#setupGemini").hidden = !["gemini", "auto"].includes(provider);
+  $("#setupClaude").hidden = !["claude", "auto"].includes(provider);
+}
+
+function syncSetupSettings(settings) {
+  for (const form of [setupStorageForm, setupConnectionsForm]) {
+    for (const field of form.elements) {
+      const key = field.name;
+      if (!key) continue;
+      field.disabled = settings.managed.includes(key);
+      field.title = field.disabled ? "Managed by the server environment" : "";
+      if (field.type === "password") {
+        field.value = "";
+        field.placeholder = settings.configured[key] ? "Configured" : "";
+      } else {
+        const fallback = key === "MIA_PROVIDER" ? "offline" : settingsDefaults[key] || "";
+        field.value = settings.options[key] || fallback;
+      }
+    }
+  }
+  $("#setupCallbackHelp").textContent = $("#callbackHelp").textContent;
+  renderSetupFields();
+}
+
+function renderSetup() {
+  const step = setupStep();
+  const unfinished = setupProgress !== "done";
+  const restartRequired = state.settings?.databaseRestartRequired;
+  setupSteps.forEach((section, index) => { section.hidden = index !== step; });
+  setupMarkers.forEach((item, index) => {
+    if (index === step) item.setAttribute("aria-current", "step");
+    else item.removeAttribute("aria-current");
+  });
+  $("#welcome").hidden = !unfinished || state.clients.length > 0;
+  $("#settingsSetup").textContent = unfinished && setupProgress !== null ? "Resume setup" : "Setup guide";
+  $("#setupBack").hidden = step === 0;
+  $("#setupBack").disabled = setupBusy;
+  $("#setupSkip").disabled = setupBusy;
+  $("#setupSkip").hidden = step === 3;
+  $("#setupSkip").textContent = step === 2 ? "Add client later" : "Skip setup";
+  $("#setupNext").textContent = setupBusy ? "Working…" : [
+    "Save and continue", "Save and continue", state.clients.length ? "Continue" : "Save client and continue", state.clients.length ? "Open Prepare" : "Open Workspace",
+  ][step];
+  $("#setupNext").disabled = setupBusy || !state.settings;
+  $("#setupNext").type = step < 3 ? "submit" : "button";
+  if (step < 3) $("#setupNext").setAttribute("form", setupSteps[step].id);
+  else $("#setupNext").removeAttribute("form");
+  $("#setupClientFields").hidden = Boolean(state.clients.length);
+  for (const field of setupClientForm.elements) field.disabled = Boolean(state.clients.length);
+  $("#setupClientHelp").textContent = state.clients.length
+    ? "Your workspace already has a client profile. Continue to review your setup."
+    : "Add an optional public website to research the client before your call.";
+  $("#setupDatabase").textContent = restartRequired
+    ? "Database change saved. Restart Cuelensa, then resume setup."
+    : state.settings ? `Active database: ${state.settings.database.engine}` : "Checking workspace storage…";
+  if (state.status) {
+    $("#setupMeeting").textContent = state.status.meetstream
+      ? state.status.webhook ? "Key and callback configured" : "Callback URL needed"
+      : "Optional";
+    $("#setupAnalysis").textContent = state.status.engine === "offline" ? "Local rules" : state.status.engine;
+  }
+  $("#setupReadyDatabase").textContent = state.settings?.database.engine || "Checking…";
+  $("#setupReadyClient").textContent = state.client?.company || state.client?.name || "Add later";
+  $("#setupReadyHint").textContent = state.clients.length ? "Open Prepare to generate a brief or start a call." : "Open Workspace and add a client when you’re ready.";
+}
+
+function saveSetupProgress(progress) {
+  setupProgress = String(progress);
+  try { localStorage.setItem(setupKey, setupProgress); } catch { /* Continue in this tab. */ }
+  renderSetup();
+}
+
+function focusSetupStep() {
+  $("h3", setupSteps[setupStep()]).focus();
+}
+
+function openSetup() {
+  if (setupProgress === "done") setupProgress = null;
+  setupFeedback();
+  renderSetup();
+  setupGuide.showModal();
+  focusSetupStep();
+}
+
+function goToSetupStep(step) {
+  setupFeedback();
+  saveSetupProgress(step);
+  focusSetupStep();
+}
+
+$("#welcomeSetup").onclick = openSetup;
+$("#settingsSetup").onclick = openSetup;
+setupStorageForm.elements.MIA_DATABASE_PROVIDER.onchange = () => {
+  $("#setupDatabaseTest").textContent = "";
+  renderSetupFields();
+};
+setupConnectionsForm.elements.MIA_PROVIDER.onchange = renderSetupFields;
+setupGuide.oncancel = event => { if (setupBusy) event.preventDefault(); };
+setupGuide.onclose = () => {
+  for (const field of $$('input[type="password"]', setupGuide)) field.value = "";
+};
+$("#setupTestDatabase").onclick = ({ currentTarget }) => testDatabaseConnection(
+  setupStorageForm.elements.MIA_DATABASE_URL.value, currentTarget, $("#setupDatabaseTest"),
+);
+$("#setupSkip").onclick = () => {
+  if (setupStep() === 2) { goToSetupStep(3); return; }
+  saveSetupProgress("done");
+  setupGuide.close();
+  if ($("#view-home").classList.contains("active")) $("#content").focus({ preventScroll: true });
+};
+$("#setupBack").onclick = () => goToSetupStep(setupStep() - 1);
+$("#setupNext").onclick = event => {
+  if (setupStep() < 3) return;
+  event.preventDefault();
+  saveSetupProgress("done");
+  setupGuide.close();
+  show(state.clients.length ? "prep" : "home", { focus: true });
+};
+
+for (const form of [setupStorageForm, setupConnectionsForm, setupClientForm]) {
+  form.onsubmit = async event => {
+    event.preventDefault();
+    if (!setupGuide.open || setupBusy || !state.settings || form !== setupSteps[setupStep()]) return;
+    const step = setupStep();
+    setupBusy = true;
+    renderSetup();
+    setupFeedback();
+    try {
+      const body = Object.fromEntries(new FormData(form));
+      if (step === 0) {
+        if (body.MIA_DATABASE_PROVIDER !== "postgresql") delete body.MIA_DATABASE_URL;
+        const configured = state.settings.options.MIA_DATABASE_PROVIDER || "sqlite";
+        if ((body.MIA_DATABASE_PROVIDER && body.MIA_DATABASE_PROVIDER !== configured) || body.MIA_DATABASE_URL?.trim()) await updateSettings(body);
+        else if (state.settings.databaseRestartRequired) await loadSettings();
+        if (state.settings.databaseRestartRequired) {
+          saveSetupProgress(step);
+          return;
+        }
+      } else if (step === 1) {
+        for (const [provider, key] of Object.entries(analysisKeys)) {
+          if (!["auto", provider].includes(form.elements.MIA_PROVIDER.value)) delete body[key];
+        }
+        checkAnalysisKey(body);
+        await updateSettings(body);
+      } else if (!state.clients.length) {
+        if (!body.name.trim()) throw new Error("Enter a contact name.");
+        const client = await api("/api/clients", { method: "POST", body });
+        saveSetupProgress(3);
+        await loadClients(client.id);
+      }
+      goToSetupStep(step + 1);
+    } catch (error) { setupFeedback(error.message); }
+    finally {
+      setupBusy = false;
+      renderSetup();
+    }
+  };
+}
 
 function renderSettings(settings) {
   state.settings = settings;
@@ -290,6 +477,8 @@ function renderSettings(settings) {
   }
   renderMiaKeySource();
   renderDatabaseFields();
+  syncSetupSettings(settings);
+  renderSetup();
   $("#docsStatus").textContent = "";
 }
 function renderMiaKeySource() {
@@ -309,15 +498,18 @@ function renderDatabaseFields() {
   $("#databaseTestStatus").textContent = "";
 }
 settingsForm.elements.MIA_DATABASE_PROVIDER.onchange = renderDatabaseFields;
-$("#testDatabase").onclick = async ({ currentTarget: button }) => {
+async function testDatabaseConnection(url, button, status) {
   button.disabled = true;
-  $("#databaseTestStatus").textContent = "Connecting…";
+  status.textContent = "Connecting…";
   try {
-    await api("/api/settings/test-database", { method: "POST", body: { url: settingsForm.elements.MIA_DATABASE_URL.value } });
-    $("#databaseTestStatus").textContent = "PostgreSQL connection successful.";
-  } catch (error) { $("#databaseTestStatus").textContent = error.message; }
+    await api("/api/settings/test-database", { method: "POST", body: { url } });
+    status.textContent = "PostgreSQL connection successful.";
+  } catch (error) { status.textContent = error.message; }
   finally { button.disabled = false; }
-};
+}
+$("#testDatabase").onclick = ({ currentTarget }) => testDatabaseConnection(
+  settingsForm.elements.MIA_DATABASE_URL.value, currentTarget, $("#databaseTestStatus"),
+);
 async function loadSettings() { renderSettings(await api("/api/settings")); }
 async function updateSettings(body) {
   renderSettings(await api("/api/settings", { method: "PUT", body }));
@@ -330,8 +522,7 @@ settingsForm.onsubmit = async (event) => {
   $("#settingsStatus").textContent = "Saving…";
   try {
     const body = Object.fromEntries(new FormData(settingsForm));
-    const required = { gemini: "GEMINI_API_KEY", claude: "ANTHROPIC_API_KEY" }[body.MIA_PROVIDER];
-    if (required && !body[required]?.trim() && !state.settings?.configured[required]) throw new Error("Enter an API key for the selected engine.");
+    checkAnalysisKey(body);
     await updateSettings(body);
     $("#settingsStatus").textContent = state.settings.databaseRestartRequired ? "Settings saved. Restart Cuelensa to apply the database change." : "Settings saved.";
   } catch (error) { $("#settingsStatus").textContent = error.message; }
@@ -349,7 +540,8 @@ $("#testDocs").onclick = async ({ currentTarget: button }) => {
 
 async function loadStatus() {
   const status = await api("/api/status");
-  $("#welcome").hidden = status.meetstream && status.webhook;
+  state.status = status;
+  renderSetup();
   const wakeWord = status.mia_agent?.wake_words?.[0];
   if (wakeWord) {
     $("#miaSourceText").textContent = 'Say “' + wakeWord + '” to ask about the selected client or log a follow-up.';
@@ -362,6 +554,7 @@ let clientSelection = 0;
 
 async function loadClients(selectId) {
   state.clients = await api("/api/clients");
+  renderSetup();
   $("#countClients").textContent = String(state.clients.length);
   const list = $("#clientList");
   list.innerHTML = state.clients.map((c) => `
@@ -1174,5 +1367,7 @@ loadStatus().catch(showError);
 loadSettings().catch(showError);
 const initialNavigation = navigationRevision;
 loadClients().then(() => {
-  if (navigationRevision === initialNavigation) return restoreLocation();
+  if (navigationRevision !== initialNavigation) return;
+  if (!location.search && !location.hash && (!state.clients.length || setupProgress === "3") && setupProgress !== "done") openSetup();
+  return restoreLocation();
 }).catch((err) => toast({ kind: "error", title: "Could not load Cuelensa", text: err.message }));

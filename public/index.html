@@ -33,8 +33,8 @@
       <section id="view-home" class="view active">
         <h1 class="sr-only">Workspace</h1>
         <section id="welcome" class="tile welcome" hidden>
-          <div><h2>Connect your meeting tools</h2><p class="muted small">Add MeetStream or a coaching provider in Settings.</p></div>
-          <button class="btn" id="welcomeSetup">Open settings</button>
+          <div><h2>Set up your workspace</h2><p class="muted small">Review storage, connect meeting tools, and add a client.</p></div>
+          <button class="btn" id="welcomeSetup" type="button">Continue setup</button>
         </section>
         <div class="bento workspace-grid">
           <section class="tile card live-panel" id="workspaceLive">
@@ -71,7 +71,7 @@
         </div>
       </section>
       <section id="view-settings" class="view">
-        <div class="page-head"><div><h1>Settings</h1><p class="muted">Manage meeting services, AI and workspace storage.</p></div></div>
+        <div class="page-head"><div><h1>Settings</h1><p class="muted">Manage meeting services, AI and workspace storage.</p></div><button class="btn" id="settingsSetup" type="button">Setup guide</button></div>
         <form id="settingsForm" class="form settings-form">
           <section class="tile form">
             <h2>System AI provider</h2>
@@ -287,6 +287,73 @@
   </div>
 
   <div id="toasts" class="toasts" aria-live="polite"></div>
+  <dialog id="setupGuide" class="source-dialog setup-guide" aria-labelledby="setupTitle">
+    <div class="setup-intro">
+      <h2 id="setupTitle">Set up Cuelensa</h2>
+      <ol class="setup-steps" aria-label="Setup steps">
+        <li aria-current="step">Workspace</li>
+        <li>Connections</li>
+        <li>First client</li>
+        <li>Ready</li>
+      </ol>
+    </div>
+    <div class="setup-body">
+      <form class="form setup-form" id="setupStorageForm" data-setup-step>
+        <h3 tabindex="-1">Choose your workspace storage</h3>
+        <p class="muted">SQLite is ready to use locally. Choose PostgreSQL to connect your own database.</p>
+        <p class="setup-note" id="setupDatabase">Checking workspace storage…</p>
+        <label>Database provider<select name="MIA_DATABASE_PROVIDER"><option value="sqlite">SQLite (local file)</option><option value="postgresql">PostgreSQL (self-hosted, Supabase, or Neon)</option></select></label>
+        <div class="form" id="setupPostgres" hidden>
+          <label>PostgreSQL connection URL<input name="MIA_DATABASE_URL" type="password" maxlength="4096" spellcheck="false" autocomplete="new-password" /></label>
+          <div class="actions"><button id="setupTestDatabase" class="btn sm" type="button">Test connection</button><span id="setupDatabaseTest" class="small" role="status"></span></div>
+        </div>
+      </form>
+      <form class="form setup-form" id="setupConnectionsForm" data-setup-step hidden>
+        <h3 tabindex="-1">Connect meeting and analysis tools</h3>
+        <p class="muted">Both connections are optional. You can start with local analysis and connect services later.</p>
+        <fieldset class="setup-fieldset">
+          <legend>Meeting capture</legend>
+          <label>MeetStream API key<input name="MEETSTREAM_API_KEY" type="password" autocomplete="off" /></label>
+          <label>Public callback URL<input name="PUBLIC_URL" type="url" placeholder="https://your-tunnel.example" /></label>
+          <p class="muted small" id="setupCallbackHelp"></p>
+        </fieldset>
+        <fieldset class="setup-fieldset">
+          <legend>System analysis</legend>
+          <label>Analysis provider<select name="MIA_PROVIDER"><option value="offline">Local rules</option><option value="auto">Auto-select from configured providers</option><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option></select></label>
+          <label id="setupGemini" hidden>Gemini API key<input name="GEMINI_API_KEY" type="password" autocomplete="off" /></label>
+          <label id="setupClaude" hidden>Anthropic API key<input name="ANTHROPIC_API_KEY" type="password" autocomplete="off" /></label>
+          <p class="muted small">Cloud analysis can receive relevant client context and transcript text.</p>
+        </fieldset>
+      </form>
+      <form class="form setup-form" id="setupClientForm" data-setup-step hidden>
+        <h3 tabindex="-1">Add your first client</h3>
+        <p class="muted" id="setupClientHelp">A profile gives you a place to keep your brief and call reports.</p>
+        <div class="form" id="setupClientFields">
+          <label>Contact name<input name="name" required maxlength="200" autocomplete="off" /></label>
+          <label>Company <span class="muted">(optional)</span><input name="company" maxlength="200" autocomplete="off" /></label>
+          <label>Public website <span class="muted">(optional)</span><input name="website_url" type="url" placeholder="https://example.com" /></label>
+        </div>
+      </form>
+      <section class="setup-form" data-setup-step hidden>
+        <h3 tabindex="-1">Your workspace is ready</h3>
+        <dl class="setup-status">
+          <div><dt>Storage</dt><dd id="setupReadyDatabase"></dd></div>
+          <div><dt>MeetStream</dt><dd id="setupMeeting"></dd></div>
+          <div><dt>Analysis</dt><dd id="setupAnalysis"></dd></div>
+          <div><dt>Client</dt><dd id="setupReadyClient"></dd></div>
+        </dl>
+        <p class="muted" id="setupReadyHint"></p>
+      </section>
+      <p class="setup-feedback small" id="setupFeedback" role="status" hidden></p>
+    </div>
+    <div class="setup-actions">
+      <button class="btn" id="setupSkip" type="button">Skip setup</button>
+      <div class="actions">
+        <button class="btn" id="setupBack" type="button" hidden>Back</button>
+        <button class="btn primary" id="setupNext" type="button">Continue</button>
+      </div>
+    </div>
+  </dialog>
   <dialog id="workspaceFollowUpDialog" class="source-dialog" aria-labelledby="workspaceFollowUpTitle">
     <div class="tile-head"><h2 id="workspaceFollowUpTitle">Open follow-ups</h2><form method="dialog"><button class="btn sm">Close</button></form></div>
     <ul id="workspaceFollowUps" class="workflow-list"></ul>

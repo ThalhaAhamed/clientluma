@@ -103,6 +103,29 @@ p { margin: 0; }
 .source-dialog::backdrop { background: rgb(32 44 41 / .6); }
 .source-dialog blockquote { margin: 12px 0; padding: 12px 14px; border-radius: 12px; background: var(--sunk); overflow-wrap: anywhere; }
 .source-dialog footer { color: var(--muted); margin-top: 6px; font-size: 12px; }
+.setup-guide { width: min(620px, calc(100vw - 24px)); padding: 0; max-height: calc(100dvh - 24px); }
+.setup-intro { padding: 22px 24px; background: var(--accent-soft); }
+.setup-intro h2 { margin: 0 0 15px; font-size: 24px; }
+.setup-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.setup-steps li { padding-top: 8px; border-top: 3px solid var(--mint-line); color: var(--muted); font-size: 13px; }
+.setup-steps li[aria-current="step"] { border-color: var(--accent); color: var(--ink); font-weight: 700; }
+.setup-body { padding: 22px 24px; }
+.setup-body h3 { margin: 0; font-size: 19px; }
+.setup-body h3:focus { outline: none; }
+.setup-body p { margin: 0; }
+.setup-form { gap: 12px; }
+.setup-fieldset { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.setup-fieldset legend { padding-inline: 4px; font-weight: 650; }
+.setup-body .setup-feedback { margin-top: 12px; color: var(--ink); }
+.setup-note, .setup-status { padding: 10px 12px; border-radius: 12px; background: var(--sunk); }
+.setup-status { margin: 10px 0 14px; }
+.setup-status div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.setup-status div + div { margin-top: 6px; }
+.setup-status dd { margin: 0; font-weight: 650; }
+.setup-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--line); }
+@media (max-width: 480px) {
+  .setup-intro, .setup-body, .setup-actions { padding-inline: 15px; }
+}
 .doc-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; }
 .report-summary-head, .report-summary-head .actions { flex-wrap: wrap; }
 .review-item { display: grid; gap: 6px; padding: 10px 0; }
