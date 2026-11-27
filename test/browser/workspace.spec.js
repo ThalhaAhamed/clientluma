@@ -128,6 +128,9 @@ test("profile, brief, document, toggle, compact overlay, report, and deletion wo
   expect(reportAxe.violations.map(({ id, nodes }) => ({ id, targets: nodes.map(node => node.target) }))).toEqual([]);
   const reportId = new URL(page.url()).searchParams.get("session");
   expect(reportId).toBeTruthy();
+  const overlayReport = overlay.getByRole("link", { name: "Report", exact: true });
+  await expect(overlayReport).toBeVisible();
+  await expect(overlayReport).toHaveAttribute("href", `/?session=${encodeURIComponent(reportId)}`);
   const downloaded = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download report" }).click();
   expect((await downloaded).suggestedFilename()).toMatch(/\.md$/);

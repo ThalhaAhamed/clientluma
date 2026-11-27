@@ -22,7 +22,7 @@ npm start
 
 For Docker Compose 2.24 or newer, run `docker compose up --build -d` and open the same address. Follow the [HTTPS hosting guide](docs/hosting.md) for a single-user, password-protected deployment with MeetStream callbacks.
 
-The [source repository](https://github.com/ThalhaAhamed/clientluma) retains its original GitHub name, ClientLuma. See [desktop setup](docs/desktop.md) for the optional Windows overlay.
+Run Cuelensa in a browser using the local or hosted setup below. The [source repository](https://github.com/ThalhaAhamed/clientluma) retains its original GitHub name, ClientLuma.
 
 ## Meeting modes
 

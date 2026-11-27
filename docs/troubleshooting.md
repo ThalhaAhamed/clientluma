@@ -9,6 +9,6 @@
 | Website index has few results | Check the page URL, robots restrictions, and whether the content is available in public HTML. Refresh after correcting the URL or connectivity. |
 | MCP test fails | Verify the endpoint and token, then check that the tool advertises `readOnlyHint: true` and accepts the configured text query field. |
 | Database change has no effect | Restart the app after saving. Environment values override settings. Existing data stays with the previous database. |
-| Browser overlay is visible in shared screen | Share the meeting tab or a specific window. The optional Windows overlay requests OS capture protection. Verify the effect in your conferencing app. |
+| Browser overlay is visible in shared screen | Share the meeting tab or a specific window. A full-screen share can include the browser overlay. |
 
 The [MeetStream diagnostics guide](https://docs.meetstream.ai/guides/help/debugging-bots) covers provider status, failure reasons, and recording artifacts. When reporting a problem, describe the symptom with a fictional reproduction and redact the meeting link, callback token, bot IDs, and transcripts.

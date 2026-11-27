@@ -42,9 +42,9 @@ const alive = (pid) => {
 };
 const publicUrl = () => {
   let u = "";
-  if (process.env.MIA_DESKTOP !== "1" && CALLBACK_PORT === null) try {
+  if (!APP_ORIGIN && CALLBACK_PORT !== null) try {
     const [url, pid] = fs.readFileSync(".tunnel-url", "utf8").trim().split(/\s+/);
-    if (url && (!pid || alive(Number(pid)))) u = url; // stale file from a killed tunnel: ignore it
+    if (url && pid && alive(Number(pid))) u = url; // stale file from a killed tunnel: ignore it
   } catch {}
   return (APP_ORIGIN ? setting("PUBLIC_URL") || APP_ORIGIN.origin : u || setting("PUBLIC_URL")).replace(/\/$/, "");
 };
@@ -385,7 +385,7 @@ app.get("/api/sessions/:id", (req, res) => {
   res.json(describeSession(session));
 });
 
-// Calls in progress (local only, like the rest of the API). The desktop overlay polls this.
+// Calls in progress for the workspace and browser cue overlay.
 app.get("/api/live", (_req, res) => res.json(liveSessions()));
 
 app.get("/api/workspace", wrap(async (_req, res) => {

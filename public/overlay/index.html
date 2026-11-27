@@ -7,7 +7,7 @@
 <link rel="icon" href="/cuelensa-mark.svg?v=5" type="image/svg+xml" />
 <link rel="stylesheet" href="/theme.css" />
 <style>
-/* Compact light card stack for a ~380px always-on-top window. Same tokens as the main app. */
+/* Compact browser cue view using the same design tokens as the workspace. */
 :root { --display: var(--font-display); --body: var(--font-body); }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: transparent; }
@@ -18,8 +18,7 @@ body { font: 13px/1.45 var(--body); color: var(--ink); -webkit-font-smoothing: a
 .label { font: 600 10px/1.3 var(--body); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
 h1, h2 { font-family: var(--display); margin: 0; }
 
-/* header (drag handle) */
-.head { -webkit-app-region: drag; display: grid; gap: 8px; cursor: grab; background: var(--charcoal); color: var(--on-charcoal); border-color: var(--charcoal); }
+.head { background: var(--charcoal); color: var(--on-charcoal); border-color: var(--charcoal); }
 .head .label { color: var(--on-charcoal-muted); }
 .head-row { display: flex; align-items: center; gap: 8px; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; flex: none; }
@@ -27,10 +26,6 @@ h1, h2 { font-family: var(--display); margin: 0; }
 .who { min-width: 0; flex: 1; }
 .who h1 { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .who .label { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 11px; }
-.ctrls { -webkit-app-region: no-drag; display: flex; gap: 4px; }
-.icon-btn { border: 1px solid var(--line); background: var(--tile); color: var(--ink-2); width: 26px; height: 26px; border-radius: 8px; cursor: pointer; display: grid; place-items: center; font: 600 12px/1 var(--body); }
-.icon-btn:hover { background: var(--sunk); }
-.icon-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 /* say next */
 .say { border-color: var(--accent-line); background: var(--shell); }
@@ -42,7 +37,7 @@ h1, h2 { font-family: var(--display); margin: 0; }
 @keyframes pop { from { transform: translateY(3px); opacity: .62; } }
 .say-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .say-actions a { color: var(--accent); text-decoration: none; }
-.btn { -webkit-app-region: no-drag; border: 1px solid var(--line); background: var(--tile); border-radius: 8px; padding: 6px 9px; font: 600 12px/1.2 var(--body); cursor: pointer; color: var(--ink); }
+.btn { border: 1px solid var(--line); background: var(--tile); border-radius: 8px; padding: 6px 9px; font: 600 12px/1.2 var(--body); cursor: pointer; color: var(--ink); }
 .btn:hover { background: var(--sunk); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .head :focus-visible { outline-color: var(--mint); }
@@ -58,8 +53,6 @@ h1, h2 { font-family: var(--display); margin: 0; }
 .t-buying_signal { color: var(--buy); background: var(--buy-bg); } .t-requirement { color: var(--req); background: var(--req-bg); }
 .t-question { color: var(--q); background: var(--q-bg); } .t-risk { color: var(--risk); background: var(--risk-bg); }
 .signal { font-size: 12.5px; display: flex; gap: 6px; align-items: baseline; }
-.foot { font-size: 11px; color: var(--muted); padding: 0 6px; }
-.shield { color: var(--buy); font-weight: 600; } .shield.off { color: var(--pain); }
 [hidden] { display: none !important; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
@@ -70,11 +63,6 @@ h1, h2 { font-family: var(--display); margin: 0; }
     <div class="head-row">
       <span class="dot" id="dot"></span>
       <div class="who"><h1 id="client">Client Lens</h1><span class="label" id="status">Waiting for a Meeting bot call…</span></div>
-      <div class="ctrls" id="controls" hidden>
-        <button class="icon-btn" id="ctBtn" title="Click-through: clicks pass to the window below (Ctrl+Shift+L)">⇣</button>
-        <button class="icon-btn" id="opBtn" title="Change transparency">◐</button>
-        <button class="icon-btn" id="hideBtn" title="Hide overlay (Ctrl+Shift+M)">✕</button>
-      </div>
       <a class="btn" id="finishedReport" href="/" target="_blank" rel="noopener" hidden>Report</a>
     </div>
   </section>
@@ -86,7 +74,6 @@ h1, h2 { font-family: var(--display); margin: 0; }
   </section>
 
   <section class="tile heard" id="heardTile" hidden><span class="label">Client just said</span><div id="heard"></div><div class="signal" id="signal" aria-label="Latest call signal" hidden></div></section>
-  <div class="foot"><span class="shield" id="shield">Screen capture protection on</span></div>
 </div>
 
 <script src="/overlay/overlay.js"></script>
