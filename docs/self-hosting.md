@@ -2,6 +2,8 @@
 
 Cuelensa is designed for a single user and a single server process. Use Node or the default Compose configuration for loopback access. For an internet-facing workspace protected by password sign-in, use the [HTTPS hosting guide](hosting.md).
 
+See [Configuration](configuration.md) for environment settings and [Integrations](integrations.md) for service setup.
+
 ## Source installation
 
 Run `npm ci` and `npm start` from the project root on Node.js 22.13 or newer. The default address is <http://localhost:4000>. Use `PORT` for a different port and `MIA_DATA_DIR` for a different storage directory.
