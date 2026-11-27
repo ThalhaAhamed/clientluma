@@ -111,7 +111,18 @@ jobs:
       - run: |
           docker run --detach --rm --name cuelensa-ci -p 127.0.0.1:4100:4000 cuelensa:ci
           trap 'docker stop cuelensa-ci' EXIT
-          curl --fail --retry 12 --retry-connrefused http://localhost:4100/api/status
+          ready=false
+          for attempt in {1..30}; do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:4100/api/status; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            docker logs cuelensa-ci
+            exit 1
+          fi
           docker exec cuelensa-ci node -e 'if (process.getuid() === 0) process.exit(1)'
       - run: npm run test:hosted
 
