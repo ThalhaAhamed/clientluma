@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "meetstream-docs": {
-      "type": "http",
-      "url": "https://docs.meetstream.ai/_mcp/server"
-    }
-  }
-}

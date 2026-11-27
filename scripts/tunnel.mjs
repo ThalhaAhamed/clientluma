@@ -1,4 +1,4 @@
-// Keeps a Cloudflare quick tunnel to ClientLuma running and writes its public URL to .tunnel-url.
+// Keeps a Cloudflare quick tunnel to Cuelensa running and writes its public URL to .tunnel-url.
 // The server reads that file whenever it sends a MeetStream bot, so no .env edit or restart is needed.
 // Usage: npm run tunnel        (needs `cloudflared` on PATH; no Cloudflare account required)
 //
@@ -9,8 +9,16 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-const PORT = Number(process.env.PORT || 4000);
+const PORT = Number(process.env.MIA_CALLBACK_PORT);
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  throw new Error("Set MIA_CALLBACK_PORT to the callback-only listener port before starting the tunnel.");
+}
 const ORIGIN = `http://127.0.0.1:${PORT}`;
+const probe = (route, method) => fetch(ORIGIN + route, { method, signal: AbortSignal.timeout(3000) });
+const [root, callback] = await Promise.all([probe("/", "GET"), probe("/webhooks/meetstream/status", "POST")]);
+if (root.status !== 404 || callback.status !== 401) {
+  throw new Error("The listener did not reject workspace access and unauthenticated callbacks. Check MIA_CALLBACK_PORT.");
+}
 const FILE = path.resolve(".tunnel-url");
 let child = null;
 let stopping = false;

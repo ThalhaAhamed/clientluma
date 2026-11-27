@@ -3,32 +3,27 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ClientLuma overlay</title>
+<title>Client Lens</title>
+<link rel="icon" href="/cuelensa-mark.svg?v=5" type="image/svg+xml" />
+<link rel="stylesheet" href="/theme.css" />
 <style>
 /* Compact light card stack for a ~380px always-on-top window. Same tokens as the main app. */
-:root {
-  color-scheme: light;
-  --tile: #ffffff; --sunk: #f6f8fa; --line: #e4e8ee; --ink: #0f1729; --ink-2: #334155; --muted: #667085;
-  --accent: #0f766e; --accent-soft: #e8f5f3; --accent-line: #bfe3dd;
-  --pain: #c2410c; --pain-bg: #fff1e9; --obj: #a16207; --obj-bg: #fdf6dd; --buy: #15803d; --buy-bg: #e9f7ee;
-  --req: #1d4ed8; --req-bg: #ebf1ff; --q: #6d28d9; --q-bg: #f2edff; --risk: #be185d; --risk-bg: #fdecf4;
-  --display: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; --body: "Inter", "Segoe UI", system-ui, sans-serif;
-}
+:root { --display: var(--font-display); --body: var(--font-body); }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: transparent; }
 body { font: 13px/1.45 var(--body); color: var(--ink); -webkit-font-smoothing: antialiased; overflow: hidden; }
-.stack { height: 100%; padding: 8px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.stack { height: 100%; max-width: 420px; margin-inline: auto; padding: 8px; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; }
 .stack::-webkit-scrollbar { width: 6px; } .stack::-webkit-scrollbar-thumb { background: rgba(15, 23, 41, .15); border-radius: 6px; }
-.tile { background: var(--tile); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; box-shadow: 0 6px 22px rgba(15, 23, 41, .12); flex: none; }
+.tile { background: var(--tile); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px; box-shadow: 0 5px 18px rgb(32 44 41 / .11); flex: none; }
 .label { font: 600 10px/1.3 var(--body); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
 h1, h2 { font-family: var(--display); margin: 0; }
 
 /* header (drag handle) */
-.head { -webkit-app-region: drag; display: grid; gap: 8px; cursor: grab; }
+.head { -webkit-app-region: drag; display: grid; gap: 8px; cursor: grab; background: var(--charcoal); color: var(--on-charcoal); border-color: var(--charcoal); }
+.head .label { color: var(--on-charcoal-muted); }
 .head-row { display: flex; align-items: center; gap: 8px; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; flex: none; }
-.dot.live { background: var(--pain); box-shadow: 0 0 0 3px var(--pain-bg); animation: blink 1.4s infinite; }
-@keyframes blink { 50% { opacity: .35; } }
+.dot.live { background: var(--mint); }
 .who { min-width: 0; flex: 1; }
 .who h1 { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .who .label { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 11px; }
@@ -38,17 +33,24 @@ h1, h2 { font-family: var(--display); margin: 0; }
 .icon-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 /* say next */
-.say { border-color: var(--accent-line); background: linear-gradient(165deg, var(--accent-soft), #fff 70%); position: relative; }
-.say.high { border-color: #f6c6ad; background: linear-gradient(165deg, var(--pain-bg), #fff 70%); }
-.say h2 { font-size: 15px; font-weight: 800; margin: 4px 0 5px; }
+.say { border-color: var(--accent-line); background: var(--shell); }
+.say.high { border-color: var(--mint-line); background: var(--accent-soft); }
+.say h2 { font-size: 15px; font-weight: 750; }
 .say p { margin: 0; font-size: 13.5px; color: var(--ink); }
-.say.fresh { animation: pop .4s ease-out; }
-@keyframes pop { from { transform: translateY(6px); opacity: .2; } }
-.say-actions { display: flex; gap: 6px; margin-top: 10px; }
-.btn { border: 1px solid var(--line); background: var(--tile); border-radius: 8px; padding: 5px 10px; font: 600 12px/1.2 var(--body); cursor: pointer; color: var(--ink); }
+.say p:not([hidden]) { margin-top: 4px; }
+.say.fresh { animation: pop .18s ease-out; }
+@keyframes pop { from { transform: translateY(3px); opacity: .62; } }
+.say-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.say-actions a { color: var(--accent); text-decoration: none; }
+.btn { -webkit-app-region: no-drag; border: 1px solid var(--line); background: var(--tile); border-radius: 8px; padding: 6px 9px; font: 600 12px/1.2 var(--body); cursor: pointer; color: var(--ink); }
 .btn:hover { background: var(--sunk); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.head :focus-visible { outline-color: var(--mint); }
+#sourceBtn { background: var(--mint); border-color: var(--mint-line); color: var(--charcoal); }
+#sourceBtn:hover { background: var(--mint-hover); }
 .heard { font-size: 12px; color: var(--muted); }
 .heard q { color: var(--ink-2); }
+.stack:has(.say:not([hidden])) .heard { display: none; }
 
 /* signals */
 .tag { display: inline-block; font: 600 10.5px/1.5 var(--body); padding: 0 7px; border-radius: 99px; white-space: nowrap; }
@@ -67,124 +69,26 @@ h1, h2 { font-family: var(--display); margin: 0; }
   <section class="tile head">
     <div class="head-row">
       <span class="dot" id="dot"></span>
-      <div class="who"><h1 id="client">ClientLuma</h1><span class="label" id="status">Looking for a live call…</span></div>
+      <div class="who"><h1 id="client">Client Lens</h1><span class="label" id="status">Waiting for a Meeting bot call…</span></div>
       <div class="ctrls" id="controls" hidden>
         <button class="icon-btn" id="ctBtn" title="Click-through: clicks pass to the window below (Ctrl+Shift+L)">⇣</button>
         <button class="icon-btn" id="opBtn" title="Change transparency">◐</button>
         <button class="icon-btn" id="hideBtn" title="Hide overlay (Ctrl+Shift+M)">✕</button>
       </div>
+      <a class="btn" id="finishedReport" href="/" target="_blank" rel="noopener" hidden>Report</a>
     </div>
   </section>
 
-  <section class="tile say" id="say" hidden>
-    <span class="label" id="sayKind">Say next</span>
-    <h2 id="sayTitle"></h2>
+  <section class="tile say" id="say" aria-labelledby="sayTitle" hidden>
+    <h2 id="sayTitle" aria-live="polite"></h2>
     <p id="sayText"></p>
-    <div class="say-actions"><button class="btn" id="usedBtn">✓ Used it</button><button class="btn" id="skipBtn">Dismiss</button></div>
+    <div class="say-actions"><a class="btn" id="sourceBtn" href="/" target="_blank" rel="noopener" hidden>View source</a><button class="btn" id="usedBtn">Used it</button><button class="btn" id="skipBtn">Dismiss</button></div>
   </section>
 
-  <section class="tile heard" id="heardTile" hidden><span class="label">Client just said</span><div id="heard"></div></section>
-
-  <section class="tile signal" id="signal" aria-label="Latest call signal" hidden></section>
+  <section class="tile heard" id="heardTile" hidden><span class="label">Client just said</span><div id="heard"></div><div class="signal" id="signal" aria-label="Latest call signal" hidden></div></section>
   <div class="foot"><span class="shield" id="shield">Screen capture protection on</span></div>
 </div>
 
-<script>
-const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const LABEL = { pain_point: "Pain", objection: "Objection", buying_signal: "Buying", requirement: "Requirement", question: "Question", risk: "Risk" };
-const bridge = window.miaOverlay; // present inside the Electron overlay, absent in a normal browser tab
-
-let sessionId = null, ws = null, current = null;
-
-// ---- window controls
-if (bridge) {
-  $("#controls").hidden = false;
-  bridge.info().then((i) => { if (!i.protected) { $("#shield").textContent = "Visible to screen sharing (debug mode)"; $("#shield").classList.add("off"); } });
-  bridge.onClickThrough((on) => $("#ctBtn").classList.toggle("on", on));
-} else {
-  $("#shield").textContent = "Browser preview: run the desktop overlay to hide it from sharing";
-  $("#shield").classList.add("off");
-}
-$("#hideBtn").onclick = () => bridge?.hide();
-$("#ctBtn").onclick = () => bridge?.setClickThrough(!$("#ctBtn").classList.contains("on"));
-const OPACITY = [1, 0.85, 0.65];
-let op = 0;
-$("#opBtn").onclick = () => { op = (op + 1) % OPACITY.length; bridge?.setOpacity(OPACITY[op]); };
-
-// Follow the selected desktop call, or the newest call in a browser preview.
-const pinned = new URLSearchParams(location.search).get("session");
-async function poll() {
-  try {
-    const live = await fetch("/api/live").then((r) => r.json());
-    const call = pinned ? live.find((item) => item.id === pinned) : live[0];
-    const next = call?.id || null;
-    if (next !== sessionId) connect(next, call);
-  } catch { /* server restarting */ }
-}
-setInterval(poll, 2000);
-poll();
-
-function reset() {
-  current = null;
-  for (const id of ["#say", "#heardTile", "#signal"]) $(id).hidden = true;
-}
-
-async function connect(id, info) {
-  ws?.close(); ws = null; sessionId = id; reset();
-  $("#dot").classList.toggle("live", Boolean(id));
-  if (!id) { $("#client").textContent = "ClientLuma"; $("#status").textContent = "Looking for a live call…"; return; }
-  $("#client").textContent = info.client;
-  $("#status").textContent = { meetstream: "MeetStream bot", mia: "MIA agent", demo: "Simulated call", browser: "Manual or microphone", practice: "Practice call", agent_test: "Two-agent test", agent_meet: "Two-agent test in Meet", replay: "Recording replay" }[info.source] || info.source;
-  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?session=${id}`);
-  ws.onmessage = (ev) => {
-    const { type, data } = JSON.parse(ev.data);
-    if (type === "hello") {
-      const signal = data.signals.at(-1);
-      const suggestion = data.suggestions.at(-1);
-      const lastClient = data.transcript.findLast((u) => u.role === "client" && u.substantive !== false);
-      if (signal) showSignal(signal);
-      if (suggestion?.status === "new") showSuggestion(suggestion);
-      if (lastClient) heard(lastClient);
-      if (data.bot) setBot(data.bot);
-    }
-    if (type === "utterance" && data.role === "client" && data.substantive !== false) heard(data);
-    if (type === "signal") showSignal(data);
-    if (type === "suggestion") showSuggestion(data, true);
-    if (type === "bot") setBot(data);
-    if (type === "ended") { $("#status").textContent = "Call ended · report ready"; $("#dot").classList.remove("live"); }
-    if (type === "cancelled") { $("#status").textContent = data?.label || "Call ended"; $("#dot").classList.remove("live"); }
-  };
-}
-
-function setBot(b) { $("#status").textContent = b.label; }
-function heard(u) { $("#heardTile").hidden = false; $("#heard").innerHTML = `<q>${esc(u.text)}</q>`; }
-
-function showSignal(s) {
-  const el = $("#signal");
-  el.hidden = false;
-  el.innerHTML = `<span class="tag t-${esc(s.type)}">${esc(LABEL[s.type])}</span><span>${esc(s.summary)}</span>`;
-}
-
-function showSuggestion(s, fresh) {
-  current = s;
-  const say = $("#say");
-  say.hidden = false;
-  say.className = `tile say ${s.priority === "high" ? "high" : ""} ${fresh ? "fresh" : ""}`;
-  $("#sayKind").textContent = (s.kind || "say next").replace("_", " ");
-  $("#sayTitle").textContent = s.title;
-  $("#sayText").textContent = s.text;
-}
-
-function mark(status) {
-  if (!current || !sessionId) return;
-  fetch(`/api/sessions/${sessionId}/suggestions/${current.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }).catch(() => {});
-  current = null;
-  $("#say").hidden = true;
-}
-$("#usedBtn").onclick = () => mark("used");
-$("#skipBtn").onclick = () => mark("dismissed");
-
-</script>
+<script src="/overlay/overlay.js"></script>
 </body>
 </html>

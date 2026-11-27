@@ -1,30 +1,49 @@
 {
-  "name": "clientluma",
+  "name": "cuelensa",
   "version": "0.1.0",
-  "description": "Self-hosted coaching cues for live client calls and recording replays",
+  "description": "Self-hosted meeting transcripts and optional live coaching",
   "private": true,
   "main": "server.js",
-  "engines": { "node": ">=22.13.0" },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
     "start": "node --env-file-if-exists=.env server.js",
     "dev": "node --env-file-if-exists=.env --watch server.js",
     "tunnel": "node --env-file-if-exists=.env scripts/tunnel.mjs",
-    "replay:import": "node --env-file-if-exists=.env scripts/import-replay.mjs",
     "overlay": "npm --prefix overlay start",
     "desktop": "npm --prefix overlay start -- --desktop",
-    "desktop:build": "node scripts/build-desktop.mjs"
+    "desktop:build": "node scripts/build-desktop.mjs",
+    "test:e2e": "playwright test",
+    "test:postgres": "node --test test/postgres.test.js",
+    "desktop:smoke": "node scripts/smoke-desktop.mjs",
+    "test:hosted": "node scripts/smoke-hosted.mjs"
   },
-  "keywords": ["self-hosted", "meeting-coaching", "meetstream", "transcription"],
+  "keywords": [
+    "self-hosted",
+    "meeting-coaching",
+    "meetstream",
+    "transcription"
+  ],
   "license": "MIT",
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^1.13.0",
     "@google/genai": "^3.6.1",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "express": "^4.22.3",
+    "ipaddr.js": "^2.5.0",
     "mammoth": "^1.13.0",
+    "parse5": "^8.1.1",
+    "pg": "^8.23.1",
+    "robots-parser": "^3.1.2",
     "unpdf": "^1.9.1",
     "ws": "^8.23.0",
     "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.1",
+    "@playwright/test": "^1.65.1"
   }
 }

@@ -1,0 +1,10 @@
+name: Feature request
+description: Suggest an improvement to the meeting workflow.
+body:
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow and desired outcome
+      description: Explain what you need to accomplish and which part of the current workflow falls short.
+    validations:
+      required: true

@@ -1,8 +1,8 @@
 {
-  "name": "clientluma-overlay",
+  "name": "cuelensa-overlay",
   "version": "0.1.0",
   "private": true,
-  "description": "Always-on-top ClientLuma coaching overlay",
+  "description": "Always-on-top Cuelensa coaching overlay",
   "license": "MIT",
   "main": "main.js",
   "scripts": {

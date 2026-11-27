@@ -3,51 +3,80 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ClientLuma</title>
+  <title>Cuelensa</title>
+  <link rel="icon" href="/cuelensa-mark.svg?v=5" type="image/svg+xml" />
   <meta name="description" content="Prepare for client calls, get live coaching cues, and review what happened." />
+  <link rel="stylesheet" href="theme.css" />
   <link rel="stylesheet" href="app.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand"><span class="logo" aria-hidden="true">CL</span><span>ClientLuma</span></div>
-    <nav class="steps" id="steps" aria-label="Workflow">
-      <button data-view="home" class="active">Workspace</button>
-      <button data-view="prep">Prepare</button>
-      <button data-view="live">Live call</button>
-      <button data-view="report">Report</button>
-      <button data-view="settings">Settings</button>
+  <a class="skip-content" href="#content">Skip to main content</a>
+  <div class="app-shell">
+    <nav class="app-navigation navbar" aria-label="Application" id="primaryNavigation">
+      <div class="brand"><img class="logo" src="/cuelensa-mark.svg?v=5" width="32" height="32" alt="" /><span>Cuelensa</span></div>
+      <div class="nav-segments">
+        <a href="./" data-view="home" aria-current="page">Workspace</a>
+        <a href="#view-prep" data-view="prep">Prepare</a>
+        <a href="#view-live" data-view="live">Live call</a>
+        <a href="#view-report" data-view="report">Reports</a>
+      </div>
+      <a class="settings-link" href="#view-settings" data-view="settings" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 3h4l.6 2.5 1.5.9 2.5-.7 2 3.5-1.9 1.8v1.8l1.9 1.8-2 3.5-2.5-.7-1.5.9L14 21h-4l-.6-2.7-1.5-.9-2.5.7-2-3.5 1.9-1.8V11L3.4 9.2l2-3.5 2.5.7 1.5-.9L10 3Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </a>
     </nav>
-    <div class="top-actions"><a class="btn sm" href="/overlay/" target="_blank" rel="noopener">Overlay</a><div class="engine" id="engine">…</div></div>
-  </header>
 
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="side-head"><span class="label">Clients</span><button class="btn sm" id="newClient">+ New</button></div>
-      <ul id="clientList" class="client-list"></ul>
-    </aside>
-
-    <main>
+    <main id="content" tabindex="-1">
+      <section class="client-picker" aria-label="Client selection">
+        <div class="client-picker-heading"><span class="label">Clients</span><button class="btn sm" id="newClient">+ New</button></div>
+        <ul id="clientList" class="client-list"></ul>
+      </section>
       <section id="view-home" class="view active">
-        <div class="page-head"><div><h1>Client calls</h1><p class="muted">Prepare the brief, coach during the call, then review what to follow up.</p></div>
-          <button id="prepareCall" class="btn primary">Prepare a call</button></div>
+        <h1 class="sr-only">Workspace</h1>
         <section id="welcome" class="tile welcome" hidden>
-          <div><h2>Set up your workspace</h2><p class="muted">Try a fictional discovery call with local coaching, or connect services for your own meetings.</p></div>
-          <div class="actions"><button class="btn primary" id="welcomeDemo">Try the demo</button><button class="btn" id="welcomeSetup">Set up services</button></div>
+          <div><h2>Connect your meeting tools</h2><p class="muted small">Add MeetStream or a coaching provider in Settings.</p></div>
+          <button class="btn" id="welcomeSetup">Open settings</button>
         </section>
-        <div class="bento">
-          <section class="tile s7"><div class="tile-head"><h2>Calls in progress</h2><button id="refreshWorkspace" class="btn sm">Refresh</button></div><ul id="workspaceCalls" class="workflow-list"></ul></section>
-          <section class="tile s5"><div class="tile-head"><h2>Setup</h2><button id="demoCall" class="btn sm">Try the demo</button></div><dl id="workspaceSetup" class="setup-list"></dl></section>
-          <section class="tile s7"><div class="tile-head"><h2>Recent reports</h2></div><ul id="workspaceReports" class="workflow-list"></ul></section>
-          <section class="tile s5"><div class="tile-head"><h2>Open follow-ups</h2></div><ul id="workspaceFollowUps" class="workflow-list"></ul></section>
+        <div class="bento workspace-grid">
+          <section class="tile card live-panel" id="workspaceLive">
+            <div class="call-display" aria-hidden="true">
+              <span class="call-waves"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            </div>
+            <span class="live-indicator badge" id="workspaceLiveStatus" role="status">Checking live calls…</span>
+            <div class="hero-copy">
+              <h2 id="workspaceCallTitle">Ready for your next call</h2>
+              <p id="workspaceCallDescription">Open the live view when your session starts.</p>
+              <button class="btn" type="button" id="openWorkspaceLive">Open live view <span class="button-arrow" aria-hidden="true">→</span></button>
+            </div>
+            <ul id="workspaceCalls" class="workflow-list" hidden></ul>
+            <dl class="hero-stats">
+              <div><dt>Reports</dt><dd id="countReports">—</dd></div>
+              <div><dt>Live sessions</dt><dd id="countCalls">—</dd></div>
+            </dl>
+          </section>
+          <button type="button" class="tile card prepare-action" id="prepareCall">
+            <span class="brief-art" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="prepare-copy"><strong>Prepare a call</strong><small>Choose a client and invite a meeting bot.</small></span>
+            <span class="tile-arrow" aria-hidden="true">↗</span>
+          </button>
+          <button type="button" class="tile card workspace-stat workspace-clients" id="workspaceClients"><span class="stat-icon person-icon" aria-hidden="true"></span><b id="countClients">—</b><span>Client profiles</span></button>
+          <button type="button" class="tile card workspace-stat workspace-followups" id="openWorkspaceFollowUps"><span class="stat-icon check-icon" aria-hidden="true"></span><b id="countFollowUps">—</b><span>Open follow-ups</span></button>
+          <section class="tile card recent-cues">
+            <div class="tile-head"><h2>Recent coaching cues</h2></div>
+            <ul id="workspaceCues" class="workflow-list" aria-busy="true"><li class="muted">Loading cues…</li></ul>
+          </section>
+          <section class="tile card recent-panel">
+            <div class="tile-head"><h2>Recent reports</h2><button type="button" id="refreshWorkspace" class="btn sm">Refresh</button></div>
+            <ul id="workspaceReports" class="workflow-list" aria-busy="true"><li class="muted">Loading reports…</li></ul>
+          </section>
         </div>
       </section>
       <section id="view-settings" class="view">
-        <div class="page-head"><div><h1>Settings</h1><p class="muted">Choose how to coach calls and connect your meetings.</p></div></div>
+        <div class="page-head"><div><h1>Settings</h1><p class="muted">Manage meeting services, AI and workspace storage.</p></div></div>
         <form id="settingsForm" class="form settings-form">
           <section class="tile form">
-            <h2>Coaching</h2>
-            <label>Engine<select name="MIA_PROVIDER"><option value="offline">Local rules</option><option value="auto">Auto-select from configured providers</option><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option></select></label>
-            <p class="muted small">Cloud coaching sends relevant client context and call text to the selected provider. Replay and the scripted demo use local rules.</p>
+            <h2>System AI provider</h2>
+            <label>Provider<select name="MIA_PROVIDER"><option value="offline">Local rules</option><option value="auto">Auto-select from configured providers</option><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option></select></label>
+            <p class="muted small">Used for prep, Client Lens and reports. Cloud providers receive relevant client context and call text.</p>
             <label>Gemini API key<input name="GEMINI_API_KEY" type="password" autocomplete="off" /></label>
             <label>Anthropic API key<input name="ANTHROPIC_API_KEY" type="password" autocomplete="off" /></label>
           </section>
@@ -59,24 +88,85 @@
             <p class="muted small" id="callbackHelp"></p>
             <p class="muted small">Leave password fields blank to keep saved keys.</p>
           </section>
+          <section class="tile form">
+            <h2>Meeting assistant model</h2>
+            <p class="muted small">MIA uses this model for spoken answers.</p>
+            <label>Provider<select name="MIA_AGENT_LLM_PROVIDER"><option value="google">Google</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="xai">xAI</option></select></label>
+            <label>Model ID<input name="MIA_AGENT_LLM_MODEL" required maxlength="200" /></label>
+            <label id="miaKeySource" hidden>Model API key source<select class="select" name="MIA_AGENT_LLM_KEY_SOURCE" aria-describedby="miaKeySourceHelp"><option value="user">My OpenAI API key</option><option value="meetstream">MeetStream’s built-in OpenAI key</option></select></label>
+            <p class="muted small" id="miaKeySourceHelp">Add your provider’s API key in MeetStream → Integrations.</p>
+          </section>
+          <section class="tile form">
+            <h2>Product docs (MCP)</h2>
+            <p class="muted small">Connect a trusted, read-only search tool so MIA can check product capabilities during calls.</p>
+            <label>MCP endpoint<input name="MIA_DOCS_MCP_URL" type="url" placeholder="https://docs.example.com/mcp" /></label>
+            <label>Search tool name<input name="MIA_DOCS_MCP_TOOL" placeholder="search_docs" maxlength="128" /></label>
+            <label>Query field<input name="MIA_DOCS_MCP_QUERY_FIELD" placeholder="query" maxlength="64" /></label>
+            <label>Bearer token<input name="MIA_DOCS_MCP_TOKEN" type="password" autocomplete="off" /></label>
+            <div class="actions"><button class="btn sm" type="button" id="testDocs">Test saved connection</button><span class="muted small" id="docsStatus" role="status"></span></div>
+          </section>
+          <section class="tile form">
+            <h2>Database</h2>
+            <p class="small" id="databaseStatus"></p>
+            <label>Database provider<select name="MIA_DATABASE_PROVIDER"><option value="sqlite">SQLite (local file)</option><option value="postgresql">PostgreSQL (self-hosted, Supabase, or Neon)</option></select></label>
+            <label id="sqliteFields">SQLite filename<input name="MIA_DATABASE_NAME" placeholder="workspace.sqlite" maxlength="67" /></label>
+            <div class="form" id="postgresFields" hidden>
+              <label>PostgreSQL connection URL<input name="MIA_DATABASE_URL" type="password" maxlength="4096" spellcheck="false" autocomplete="new-password" /></label>
+              <p class="muted small">Use credentials for a PostgreSQL database Cuelensa can write to. Remote connections use verified TLS.</p>
+              <div class="actions"><button class="btn sm" type="button" id="testDatabase">Test connection</button><span class="muted small" id="databaseTestStatus" role="status"></span></div>
+            </div>
+            <p class="muted small">Restart Cuelensa to apply database changes. Existing records stay in their original database.</p>
+          </section>
           <div class="actions"><button type="submit" class="btn primary">Save settings</button><button type="button" class="btn" id="settingsBack">Back to workspace</button><span id="settingsStatus" class="muted" role="status"></span></div>
         </form>
       </section>
       <!-- ============ PREPARE ============ -->
       <section id="view-prep" class="view">
-        <div class="page-head">
-          <div><h1>Prepare for the call</h1></div>
-          <button class="btn primary" id="genKb">Generate knowledge base</button>
+        <div class="page-head prep-header">
+          <div><p class="section-context">Pre-call brief</p><h1 id="prepTitle">Prepare for the call</h1><p class="muted" id="prepContext"></p></div>
+          <div class="actions"><button class="btn sm" id="editPrep">Edit prep</button><button class="btn sm" id="genKb">Generate brief</button><button class="btn sm primary" id="jumpStart">Start call</button></div>
         </div>
 
         <div class="bento bento-prep">
+          <div class="tile t-start" id="startOptions">
+            <div class="tile-head"><h2>Start the call</h2></div>
+            <form id="meetingForm">
+              <div class="sources meeting-sources">
+                <label class="source" id="msSource"><input class="radio" type="radio" name="source" value="meetstream" checked />
+                  <div><b>Meeting bot</b><span class="sr-only">Joins silently and transcribes the call. Client Lens starts off.</span></div></label>
+                <label class="source"><input class="radio" type="radio" name="source" value="client-lens" />
+                  <div><b>Client Lens only</b><span class="sr-only">On-device cues from shared tab audio. No bot or report.</span></div></label>
+                <label class="source" id="miaSource"><input class="radio" type="radio" name="source" value="mia" />
+                  <div><b>Meeting assistant</b><span class="sr-only" id="miaSourceText">Ask the assistant about the selected client or ask it to log a follow-up.</span></div></label>
+              </div>
+              <p id="meetingModeHelp" class="muted small" aria-hidden="true"></p>
+              <div class="row" id="sourceOpts">
+                <label>Meeting link<input id="meetingLink" type="url" required placeholder="https://…" /></label>
+                <label>Your meeting name<input id="repName" placeholder="Helps identify you in the transcript" /></label>
+              </div>
+              <div id="localLensOptions" hidden>
+                <p class="muted">Open your meeting in another tab. Start Client Lens and share that tab’s audio for live cues. Cuelensa saves no audio or transcript.</p>
+                <p class="muted small" id="localLensSupport" role="status"></p>
+                <button class="btn sm" type="button" id="installLensLanguage" hidden>Download English speech pack</button>
+              </div>
+              <div class="meeting-actions">
+                <button class="btn primary" id="startCall" type="submit">Send bot</button>
+              </div><p id="meetingStatus" class="muted small" role="status"></p>
+            </form>
+          </div>
+
           <div class="tile t-client">
             <div class="tile-head"><h2>Client</h2></div>
-            <form id="clientForm" class="form">
+            <div id="prepClient"></div>
+            <details class="review-disclosure client-editor" id="clientEditor"><summary>Edit client</summary><form id="clientForm" class="form">
               <input type="hidden" name="id" />
               <div class="row">
                 <label>Contact name<input name="name" required /></label>
                 <label>Company<input name="company" /></label>
+              </div>
+              <div><label for="clientWebsite">Client website</label>
+                <input class="input" id="clientWebsite" name="website_url" inputmode="url" placeholder="example.com" maxlength="2048" aria-describedby="websiteHelp" />
+                <p class="hint" id="websiteHelp">Optional. Saving indexes relevant public pages for this client.</p>
               </div>
               <div class="row">
                 <label>Industry<input name="industry" /></label>
@@ -90,115 +180,91 @@
                 <button class="btn" type="submit">Save client</button>
                 <button class="btn ghost danger-text" type="button" id="deleteClient">Delete</button>
               </div>
-            </form>
+            </form></details>
+            <details class="review-disclosure website-intelligence" id="websiteIntelligence" hidden>
+              <summary>Website intelligence</summary>
+              <div class="website-index-body">
+                <a class="website-source" id="indexedWebsite" target="_blank" rel="noopener noreferrer"></a>
+                <p class="small" id="websiteStatus" role="status"></p>
+                <progress class="progress" id="websiteProgress" value="0" max="8" aria-label="Website pages checked" hidden></progress>
+                <div class="actions">
+                  <button class="btn sm" type="button" id="refreshWebsite">Refresh website</button>
+                  <button class="btn sm ghost danger-text" type="button" id="removeWebsite">Remove website knowledge</button>
+                </div>
+                <div id="websiteFindings" class="website-findings"></div>
+              </div>
+            </details>
           </div>
 
-          <div class="tile t-summary accent-tile">
-            <span class="label">Knowledge base</span>
-            <div id="kbSummary" class="kb-summary">Save the client, then generate a knowledge base of likely pain points, expectations, objections and questions.</div>
+          <div class="tile t-ask"><div class="tile-head"><h2>Discovery questions</h2></div><ul id="kbAsk" class="plain-list"></ul></div>
+          <div class="tile t-summary">
+            <div class="tile-head"><h2>Talking points</h2></div>
             <div id="kbGoals" class="kb-goals"></div>
-            <div id="kbExpect" class="kb-expect"></div>
+            <details class="review-disclosure prep-brief-notes" id="kbBriefNotes" open><summary>Brief context</summary>
+              <div id="kbSummary" class="kb-summary">Save the client, then generate a knowledge base of likely pain points, expectations, objections and questions.</div>
+              <div id="kbExpect" class="kb-expect"></div>
+            </details>
           </div>
 
-          <div class="tile t-pains"><div class="tile-head"><h2>Likely pain points</h2><span class="tag t-pain_point">probe</span></div><div id="kbPains" class="kb-list"></div></div>
-          <div class="tile t-objections"><div class="tile-head"><h2>Likely objections</h2><span class="tag t-objection">prepare</span></div><div id="kbObjections" class="kb-list"></div></div>
-          <div class="tile t-ask"><div class="tile-head"><h2>Questions to ask</h2></div><ul id="kbAsk" class="plain-list"></ul></div>
-          <div class="tile t-theirs"><div class="tile-head"><h2>They may ask</h2></div><div id="kbTheirQs" class="kb-list"></div></div>
+          <div class="tile t-objections"><div class="tile-head"><h2>Likely objections</h2></div><div id="kbObjections" class="kb-list"></div></div>
+          <div class="tile t-pains"><div class="tile-head"><h2>Likely pain points</h2></div><div id="kbPains" class="kb-list"></div></div>
           <div class="tile t-memory">
             <div class="tile-head"><h2>Client memory</h2></div>
             <div id="profileBox"><p class="empty">Client insights appear here after a completed call.</p></div>
             <div class="profile" id="clientFollowUps" hidden></div>
           </div>
+          <div class="tile t-theirs"><div class="tile-head"><h2>They may ask</h2></div><div id="kbTheirQs" class="kb-list"></div></div>
           <div class="tile t-people"><div class="tile-head"><h2>Stakeholders</h2></div><div id="kbStake" class="people"></div></div>
 
           <div class="tile t-docs">
             <div class="tile-head"><h2>Documents</h2></div>
+            <p class="muted small">Approve verified product or security documents to cite during calls.</p>
             <ul id="docList" class="doc-list"></ul>
             <label class="drop" id="drop">
               <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.eml" />
               <b>Drop files or click to upload</b><span class="hint">PDF, Word (.docx), .txt .md .csv .json .html .eml</span>
             </label>
           </div>
-
-          <div class="tile t-start">
-            <div class="tile-head"><h2>Start the call</h2></div>
-            <div class="sources">
-              <label class="source"><input type="radio" name="source" value="demo" checked />
-                <div><b>Simulated call</b><span>Plays a scripted discovery call. Best for demos.</span></div></label>
-              <label class="source" id="replaySource" hidden><input type="radio" name="source" value="replay" />
-                <div><b>Recording replay</b><span>Play the client recording at its original pace and watch for live coaching cues.</span></div></label>
-              <label class="source" id="agentTestSource"><input type="radio" name="source" value="agent_test" />
-                <div><b>Two-agent test</b><span>An AI presenter and buyer take turns in a local call. Watch the overlay as they talk.</span></div></label>
-              <label class="source" id="agentMeetSource"><input type="radio" name="source" value="agent_meet" />
-                <div><b>Two-agent test in Meet</b><span>The AI presenter and buyer speak in Google Meet while a silent listener transcribes.</span></div></label>
-              <label class="source"><input type="radio" name="source" value="browser" />
-                <div><b>Manual or microphone</b><span id="browserSourceText">Enter lines manually or use speech-to-text in Chrome or Edge.</span></div></label>
-              <label class="source" id="msSource"><input type="radio" name="source" value="meetstream" />
-                <div><b>MeetStream bot</b><span>Silent bot joins Zoom, Meet or Teams and streams the transcript.</span></div></label>
-              <label class="source" id="miaSource"><input type="radio" name="source" value="mia" />
-                <div><b>MIA agent</b><span id="miaSourceText">Hosted MeetStream agent. Silent until someone says "Hey MIA", then answers from this client's memory.</span></div></label>
-              <label class="source" id="practiceSource"><input type="radio" name="source" value="practice" />
-                <div><b>Practice call with an AI client</b><span>One bot plays the buyer. A silent listener transcribes the call for live coaching.</span></div></label>
-            </div>
-            <div class="row" id="sourceOpts">
-              <label id="repNameWrap">Your name on the call <span class="hint">tells you apart from the client</span><input id="repName" placeholder="e.g. Alex" /></label>
-              <label id="linkWrap" hidden>Meeting link<input id="meetingLink" placeholder="https://meet.google.com/…" /></label>
-              <label id="speedWrap">Call pace
-                <select id="demoSpeed"><option value="3200">Natural (~90 s)</option><option value="1500" selected>Fast (~50 s)</option><option value="6000">Slow (~2.5 min)</option></select></label>
-            </div>
-            <div class="actions"><button class="btn primary lg" id="startCall">Start live analysis →</button><button class="btn" id="importReplay" hidden>Import recording replay</button></div>
-          </div>
         </div>
       </section>
 
       <!-- ============ LIVE ============ -->
       <section id="view-live" class="view">
+        <section class="tile live-empty" id="liveEmpty">
+          <h1>No live call</h1><p class="muted">Start a session from Prepare to see it here.</p>
+          <div class="actions"><button class="btn primary" id="prepareFromLive">Prepare a call</button></div>
+        </section>
+        <div id="localLensContent" hidden>
+          <div class="page-head prep-header">
+            <div><p class="section-context">Listening on this device</p><h1>Client Lens</h1><p class="muted">Live cues only. No bot, recording, or report.</p></div>
+            <button class="btn" type="button" id="stopLocalLens">Stop Client Lens</button>
+          </div>
+          <section class="tile">
+            <div class="tile-head"><h2>Current cue</h2></div>
+            <div id="localLensCue" aria-live="polite"><p class="muted">Waiting for a coaching cue…</p></div>
+          </section>
+        </div>
+        <div id="liveContent" hidden>
         <div class="page-head">
           <div class="live-title"><span class="dot rec"></span><div><span class="label">Live call<span id="liveSource"></span><span id="botStatus" class="bot-status" hidden></span></span><h1 id="liveClient">-</h1></div></div>
-          <button class="btn danger" id="endCall">End call & build report</button>
+          <div class="actions"><label class="lens-control" id="liveLensControl"><input class="toggle" type="checkbox" role="switch" id="liveLens" /><span>Client Lens</span></label><a class="btn sm" id="liveOverlayLink" target="_blank" rel="noopener" hidden>Open cue overlay</a><button class="btn danger" id="endCall">End call &amp; build report</button></div>
         </div>
 
-        <section class="tile replay" id="replayPlayer" hidden>
-          <video id="replayVideo" preload="metadata" playsinline aria-label="Meeting recording"></video>
-          <div class="replay-controls">
-            <button class="btn primary" id="replayPlay" type="button">Play recording</button>
-            <span class="muted" id="replayTime">0:00</span>
-          </div>
-        </section>
-
         <div class="bento bento-live">
-          <div class="tile stat">
-            <span class="label">Deal temperature</span>
-            <div class="stat-num"><b id="tempVal">50</b><span>/100</span></div>
-            <div class="meter"><div id="tempBar"></div></div>
-          </div>
-          <div class="tile stat">
-            <span class="label">Sentiment</span>
-            <div class="stat-word" id="sentiment">neutral</div>
-          </div>
-          <div class="tile stat t-counts">
-            <span class="label">Signals so far</span>
-            <div class="counts" id="counts"></div>
-          </div>
-
           <div class="tile t-transcript">
-            <div class="tile-head"><h2>Transcript</h2><span class="thinking" id="thinking" hidden>analysing…</span></div>
+            <div class="tile-head"><h2>Live transcript</h2><span class="thinking" id="thinking" hidden>Analyzing…</span></div>
             <div id="transcript" class="transcript"></div>
-            <form id="manualForm" class="manual">
-              <select id="manualRole" aria-label="Speaker"><option value="client">Client</option><option value="rep">Me</option></select>
-              <input id="manualText" placeholder="Type what was said (or use the mic)…" autocomplete="off" />
-              <button class="btn" type="submit">Add</button>
-              <button class="btn" type="button" id="micBtn" hidden>Start mic</button>
-            </form>
           </div>
 
           <div class="tile t-sugs">
-            <div class="tile-head"><h2>Suggestions</h2></div>
+            <div class="tile-head"><h2>Coaching cues</h2><span class="muted small" id="liveCueCount"></span></div>
             <div id="suggestions" class="suggestions"><p class="empty">Suggestions appear here and as pop-ups as the client speaks.</p></div>
           </div>
 
+          <div class="tile t-talk"><div class="tile-head"><h2>Talk ratio</h2></div><div id="liveTalkRatio"></div><p class="muted small">Share of transcript words</p></div>
           <div class="tile t-signals">
             <div class="tile-head"><h2>Signals</h2></div>
+            <div class="counts" id="counts"></div>
             <div class="filters" id="sigFilters"></div>
             <ul id="signals" class="signals"></ul>
           </div>
@@ -208,18 +274,27 @@
             <div id="kbMini" class="kb-mini"></div>
           </div>
         </div>
+        </div>
       </section>
 
       <!-- ============ REPORT ============ -->
       <section id="view-report" class="view">
-        <div class="page-head"><div><span class="label">Step 3</span><h1>Post-call report</h1></div></div>
-        <div id="report" class="bento bento-report"><div class="tile wide empty">End a call to generate its report. Past meetings for the selected client are listed below.</div></div>
-        <div class="bento"><div class="tile wide"><div class="tile-head"><h2>Meeting history</h2></div><ul id="history" class="history"></ul></div></div>
+        <div id="reportOverview" class="bento bento-report"><div class="tile wide"><h1>Post-call reports</h1><p class="muted">Select a client to review their meeting history, or end a call to generate a new report.</p></div></div>
+        <div id="report" class="bento bento-report" hidden></div>
+        <div class="bento"><details class="tile wide review-disclosure" id="meetingHistory" open><summary>Meeting history</summary><ul id="history" class="history"></ul></details></div>
       </section>
     </main>
   </div>
 
   <div id="toasts" class="toasts" aria-live="polite"></div>
+  <dialog id="workspaceFollowUpDialog" class="source-dialog" aria-labelledby="workspaceFollowUpTitle">
+    <div class="tile-head"><h2 id="workspaceFollowUpTitle">Open follow-ups</h2><form method="dialog"><button class="btn sm">Close</button></form></div>
+    <ul id="workspaceFollowUps" class="workflow-list"></ul>
+  </dialog>
+  <dialog id="technicalSource" class="source-dialog" aria-labelledby="technicalSourceTitle">
+    <div class="tile-head"><h2 id="technicalSourceTitle">Technical source</h2><form method="dialog"><button class="btn sm">Close</button></form></div>
+    <div id="technicalSourceBody"></div>
+  </dialog>
   <script src="app.js" type="module"></script>
 </body>
 </html>
